@@ -5,14 +5,30 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
-import androidx.room.Room
+import androidx.room.withTransaction
+import com.blackshield.core.data.db.AllowListDao
 import com.blackshield.core.data.db.BlackShieldDatabase
+import com.blackshield.core.data.db.MultiRowSignatureWriter
+import com.blackshield.core.data.db.QuarantineDao
 import com.blackshield.core.data.db.ScanResultDao
+import com.blackshield.core.data.db.SignatureBulkWriter
+import com.blackshield.core.data.db.SignatureDao
+import com.blackshield.core.data.repository.AllowListRepository
+import com.blackshield.core.data.repository.OfflineAllowListRepository
+import com.blackshield.core.data.repository.OfflineQuarantineRepository
+import com.blackshield.core.data.repository.OfflineScanResultRepository
+import com.blackshield.core.data.repository.OfflineSignatureRepository
+import com.blackshield.core.data.repository.QuarantineRepository
+import com.blackshield.core.data.repository.ScanResultRepository
+import com.blackshield.core.data.repository.SignatureRepository
+import com.blackshield.core.data.repository.TransactionRunner
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.time.Clock
 import javax.inject.Singleton
 
 @Module
@@ -20,11 +36,28 @@ import javax.inject.Singleton
 internal object DataModule {
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): BlackShieldDatabase =
-        Room.databaseBuilder(context, BlackShieldDatabase::class.java, "blackshield.db").build()
+    fun provideDatabase(@ApplicationContext context: Context): BlackShieldDatabase = BlackShieldDatabase.build(context)
+
+    @Provides
+    fun provideSignatureDao(database: BlackShieldDatabase): SignatureDao = database.signatureDao()
 
     @Provides
     fun provideScanResultDao(database: BlackShieldDatabase): ScanResultDao = database.scanResultDao()
+
+    @Provides
+    fun provideAllowListDao(database: BlackShieldDatabase): AllowListDao = database.allowListDao()
+
+    @Provides
+    fun provideQuarantineDao(database: BlackShieldDatabase): QuarantineDao = database.quarantineDao()
+
+    @Provides
+    fun provideTransactionRunner(database: BlackShieldDatabase): TransactionRunner = object : TransactionRunner {
+        override suspend fun <R> inTransaction(block: suspend () -> R): R = database.withTransaction { block() }
+    }
+
+    @Provides
+    @Singleton
+    fun provideClock(): Clock = Clock.systemUTC()
 
     @Provides
     @Singleton
@@ -32,4 +65,27 @@ internal object DataModule {
         PreferenceDataStoreFactory.create(
             produceFile = { context.preferencesDataStoreFile("user_preferences") }
         )
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal abstract class RepositoryModule {
+    @Binds
+    abstract fun bindSignatureBulkWriter(impl: MultiRowSignatureWriter): SignatureBulkWriter
+
+    @Binds
+    @Singleton
+    abstract fun bindSignatureRepository(impl: OfflineSignatureRepository): SignatureRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScanResultRepository(impl: OfflineScanResultRepository): ScanResultRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAllowListRepository(impl: OfflineAllowListRepository): AllowListRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindQuarantineRepository(impl: OfflineQuarantineRepository): QuarantineRepository
 }
