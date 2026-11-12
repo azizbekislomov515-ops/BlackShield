@@ -1,7 +1,30 @@
+import com.android.build.api.variant.BuildConfigField
+import com.blackshield.buildlogic.Sha256OfApkTask
+
 plugins {
     alias(libs.plugins.blackshield.android.application)
     alias(libs.plugins.blackshield.android.compose)
     alias(libs.plugins.blackshield.hilt)
+}
+
+// Debug builds seed the SHA-256 of the harmless :testing:eicar-apk as a malware signature so the
+// detection flow can be verified end to end (see testing/eicar-apk/build.gradle.kts).
+val eicarTestApkSha256 =
+    tasks.register<Sha256OfApkTask>("eicarTestApkSha256") {
+        dependsOn(":testing:eicar-apk:assembleDebug")
+        apkDirectory.set(rootProject.layout.projectDirectory.dir("testing/eicar-apk/build/outputs/apk/debug"))
+        outputFile.set(layout.buildDirectory.file("eicar/eicar-test-apk.sha256"))
+    }
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.buildConfigFields?.put(
+            "EICAR_TEST_APK_SHA256",
+            eicarTestApkSha256.flatMap { it.outputFile }.map { file ->
+                BuildConfigField("String", "\"${file.asFile.readText().trim()}\"", "SHA-256 of :testing:eicar-apk")
+            }
+        )
+    }
 }
 
 android {
@@ -29,6 +52,14 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // Release configuration (R8, not debuggable) signed with the debug key, for performance
+        // measurements on devices: debuggable builds are several times slower at rendering.
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            applicationIdSuffix = ".benchmark"
         }
     }
 }

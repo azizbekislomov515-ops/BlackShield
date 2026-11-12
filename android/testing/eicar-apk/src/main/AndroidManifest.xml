@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Harmless detection test sample; see build.gradle.kts. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:hasCode="false"
+        android:icon="@android:drawable/ic_dialog_alert"
+        android:label="BlackShield EICAR test" />
+
+</manifest>
