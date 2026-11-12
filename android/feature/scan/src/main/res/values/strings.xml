@@ -1,5 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="scan_engine_status_title">Native scan engine</string>
-    <string name="scan_engine_unavailable">Engine unavailable: %1$s</string>
+    <string name="scan_title">BlackShield</string>
+    <string name="scan_idle_title">Scan installed apps</string>
+    <string name="scan_idle_body">Checks every installed app against the malware signature database.</string>
+    <string name="scan_now">Scan now</string>
+    <string name="scan_again">Scan again</string>
+    <string name="scan_pause">Pause</string>
+    <string name="scan_resume">Resume</string>
+    <string name="scan_cancel">Cancel</string>
+    <string name="scan_progress">Scanning %1$d of %2$d</string>
+    <string name="scan_paused">Paused at %1$d of %2$d</string>
+    <plurals name="scan_finished">
+        <item quantity="one">%1$d app scanned in %2$.1f s</item>
+        <item quantity="other">%1$d apps scanned in %2$.1f s</item>
+    </plurals>
+    <string name="scan_finished_summary">Malicious: %1$d · Suspicious: %2$d</string>
+    <string name="scan_no_results">No results yet. Run a scan to check your apps.</string>
+
+    <string name="verdict_clean">Clean</string>
+    <string name="verdict_suspicious">Suspicious</string>
+    <string name="verdict_malicious">Malicious</string>
+
+    <string name="details_package">Package</string>
+    <string name="details_version">Version code</string>
+    <string name="details_sha256">Base APK SHA-256</string>
+    <string name="details_sha256_unavailable">Unavailable</string>
+    <string name="details_risk">Risk score</string>
+    <string name="details_risk_value">%1$d / 100</string>
+    <string name="details_scanned_at">Scanned</string>
+    <string name="details_reasons">Findings</string>
+    <string name="details_no_reasons">Nothing found.</string>
+    <string name="details_trust">Trust this app</string>
+    <string name="details_trust_hint">Suppresses heuristic warnings from the next scan. Known malware is still reported.</string>
+
+    <string name="reason_known_malware">Known malware: %1$s</string>
+    <string name="reason_sideloaded">Installed from outside an app store (%1$s)</string>
+    <string name="reason_sms_access">Can read or send SMS (%1$s)</string>
+    <string name="reason_installs_packages">Can install other apps</string>
+    <string name="reason_draws_over_apps">Can draw over other apps</string>
+    <string name="reason_debuggable">Debuggable build</string>
+    <string name="reason_allow_listed">%1$s</string>
+    <string name="reason_hash_failed">Could not read %1$s</string>
+    <string name="reason_points">+%1$d</string>
 </resources>

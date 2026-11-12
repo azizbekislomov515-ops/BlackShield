@@ -9,3 +9,7 @@ android {
 dependencies {
     implementation(projects.core.scanner)
 }
+
+composeCompiler {
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("config/compose/stability.conf"))
+}
