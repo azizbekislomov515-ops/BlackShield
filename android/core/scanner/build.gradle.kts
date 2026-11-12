@@ -31,6 +31,10 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.coroutines.android)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
 
 // GoogleTest suite for the C++ primitives, built with the NDK and run on a connected device:
