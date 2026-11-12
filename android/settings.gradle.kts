@@ -24,3 +24,5 @@ dependencyResolutionManagement {
 rootProject.name = "BlackShield"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
+include(":core:data")
+include(":core:network")
