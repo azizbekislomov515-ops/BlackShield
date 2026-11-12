@@ -41,10 +41,26 @@ Android app                                              backend
 
 ### 3.3 Native scan engine (`:core:scanner`)
 
-- C++17, built with CMake through the NDK for `arm64-v8a`, `armeabi-v7a` and `x86_64`.
-- Kotlin calls into C++ through JNI (`NativeScanner`); the rest of the app sees only the `ScannerEngine` interface.
-- Currently exposes only `ping()` to prove the build and loading pipeline.
-- Signature format, update mechanism, threading model and memory limits: _TBD_.
+- C++17, built with CMake through the NDK for `arm64-v8a`, `armeabi-v7a` and `x86_64`. No dependencies beyond the NDK.
+- `blackshield_scanner_core` (static, no JNI): the scan primitives. `libblackshield_scanner.so` adds the JNI layer.
+- **Hashing:** `HashEngine` streams a file path or file descriptor through MD5, SHA-1 or SHA-256 (own implementations)
+  in 64 KiB chunks, so memory use does not depend on file size.
+  - Seekable files are hashed with `pread()` from offset 0, leaving the caller's descriptor offset unchanged.
+  - Pipes and sockets are `poll()`ed with a 50 ms timeout, so cancellation can't get stuck on a blocked read.
+  - Every outcome is a status code (ok, not found, permission denied, cancelled, I/O error, invalid argument, internal
+    error) plus errno. Nothing throws across the JNI boundary.
+- **JNI rules** (`hash_jni.cpp`):
+  - Every argument is validated, and paths are converted from UTF-16 to real UTF-8 (not JNI's modified UTF-8).
+  - All C++ exceptions are caught, and no Java exception is left pending.
+  - Cancellation tokens are opaque ids looked up in a registry, so a stale or forged token can never be dereferenced.
+- **Kotlin API:**
+  - `NativeHasher.hashFile` and `NativeHasher.hashFd(ParcelFileDescriptor)` are suspend functions that run on
+    `Dispatchers.IO` and return a sealed `HashResult`.
+  - Coroutine cancellation sets the native flag and rethrows; an optional `CancellationSignal` returns
+    `HashResult.Cancelled`.
+- Tests: GoogleTest on the device (`connectedNativeTest`), instrumented tests and a throughput benchmark. Measured
+  figures are in [performance.md](performance.md).
+- Signature format, update mechanism and the scan pipeline built on these primitives: _TBD_.
 
 ### 3.4 Background work
 

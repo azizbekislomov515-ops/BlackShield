@@ -55,6 +55,21 @@ cd android
 - `ktlint` uses the `android_studio` code style configured in `.editorconfig`; `ktlintFormat` fixes most findings.
 - `assembleRelease` runs R8 (code and resource shrinking); the APK is unsigned until a signing config is added.
 
+Tests that need a connected device or emulator (`adb devices` must list one):
+
+```bash
+./gradlew :core:scanner:connectedNativeTest
+```
+
+```bash
+./gradlew :core:scanner:connectedDebugAndroidTest
+```
+
+- `connectedNativeTest` builds the C++ GoogleTest suite (`core/scanner/src/nativeTest/cpp`) with the NDK, then pushes
+  it to the device and runs it. Optional flags: `-PnativeTestAbi=arm64-v8a`, `-PgtestFilter='Sha*'`.
+- `connectedDebugAndroidTest` runs the instrumented Kotlin tests, including 500 MiB memory and cancellation checks
+  and the throughput benchmark (see [docs/performance.md](docs/performance.md)).
+
 Install on a device or emulator with `./gradlew installDebug`. The launch screen shows the result of a JNI call into
 the native scanner, e.g. `pong from native scanner (C++17, arm64-v8a)`.
 
@@ -123,7 +138,7 @@ alembic upgrade head
 
 | Workflow | Runs |
 | --- | --- |
-| `android.yml` | `assembleDebug`, `testDebugUnitTest`, `lint`, `detekt`, `ktlintCheck` |
+| `android.yml` | `assembleDebug`, `testDebugUnitTest`, `lint`, `detekt`, `ktlintCheck`; native GoogleTest and instrumented tests on an emulator |
 | `backend.yml` | `ruff check`, `ruff format --check`, `pytest`, and a `docker compose up` smoke test of `/health` |
 
 Each workflow runs only when files under its project directory (or the workflow itself) change.
