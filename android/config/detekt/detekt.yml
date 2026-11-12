@@ -13,7 +13,8 @@ naming:
 
 complexity:
   LongParameterList:
-    ignoreAnnotated: ['Composable']
+    # Composables take many optional parameters; DI constructors list their dependencies.
+    ignoreAnnotated: ['Composable', 'Inject']
   LongMethod:
     ignoreAnnotated: ['Composable']
 

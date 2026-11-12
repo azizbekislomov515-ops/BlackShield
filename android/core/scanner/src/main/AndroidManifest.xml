@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Scanning every installed app for malware is BlackShield's core function, and Google Play
+        permits QUERY_ALL_PACKAGES for anti-malware apps. A <queries> block cannot replace it:
+        malware often has no launcher activity or exported component to match.
+        Justification and Play declaration: docs/permissions.md.
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+</manifest>

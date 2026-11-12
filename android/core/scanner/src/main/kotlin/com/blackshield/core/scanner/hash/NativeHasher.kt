@@ -24,9 +24,16 @@ import kotlinx.coroutines.coroutineScope
  * - Cancelling the optional [CancellationSignal] stops it and returns [HashResult.Cancelled].
  */
 @Singleton
-class NativeHasher internal constructor(private val bridge: HashBridge, private val ioDispatcher: CoroutineDispatcher) {
+class NativeHasher internal constructor(private val bridge: HashBridge, private val ioDispatcher: CoroutineDispatcher) :
+    FileHasher {
     @Inject
     constructor() : this(NativeHashBridge, Dispatchers.IO)
+
+    /** Runs native hashing on [dispatcher] instead of Dispatchers.IO (e.g. a low-priority pool). */
+    constructor(dispatcher: CoroutineDispatcher) : this(NativeHashBridge, dispatcher)
+
+    override suspend fun hashFile(path: String, algorithm: HashAlgorithm): HashResult =
+        hashFile(path, algorithm, cancellationSignal = null)
 
     suspend fun hashFile(
         path: String,

@@ -30,7 +30,10 @@ android {
 }
 
 dependencies {
+    api(projects.core.data)
     implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
