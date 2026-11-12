@@ -1,0 +1,37 @@
+name: blackshield
+
+services:
+  api:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Inside the compose network the database host is the "db" service.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-blackshield}:${POSTGRES_PASSWORD:-blackshield}@db:5432/${POSTGRES_DB:-blackshield}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-blackshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-blackshield}
+      POSTGRES_DB: ${POSTGRES_DB:-blackshield}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
