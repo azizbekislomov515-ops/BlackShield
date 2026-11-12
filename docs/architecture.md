@@ -62,17 +62,46 @@ Android app                                              backend
   figures are in [performance.md](performance.md).
 - Signature format, update mechanism and the scan pipeline built on these primitives: _TBD_.
 
-### 3.4 Background work
+### 3.4 Installed-app scan (`InstalledAppScanner`, `:core:scanner`)
+
+- `PackageManagerAppSource` lists every package. This needs `QUERY_ALL_PACKAGES`; see
+  [permissions.md](permissions.md).
+- **For each app:**
+  - The base and split APKs are hashed. SHA-256 is always computed; MD5 and SHA-1 only if the store holds
+    signatures of that type.
+  - All digests are looked up in one batch (`SignatureRepository.findMatches`).
+  - `RiskAssessor` turns the evidence into a verdict:
+    - **MALICIOUS** on any signature match. This applies even to allow-listed apps.
+    - **SUSPICIOUS** at 50+ heuristic points: sideloaded +25, SMS +20, installs packages +15, overlay +15,
+      debuggable +10.
+    - **CLEAN** otherwise.
+    - Heuristics apply only to user-installed apps that are not allow-listed.
+- **Execution:** `ScanControl` handles pause and resume, and cancelling the collecting coroutine stops the scan.
+  Workers run on a fixed pool of background-priority threads.
+- **Persistence:** each result is saved as it completes (one row per package). After a complete scan, results for
+  uninstalled apps are removed.
+- **Test signatures:** debug builds seed test signatures (`app/src/debug/.../BuildTypeSignatures.kt`). These are the
+  EICAR test file and the SHA-256 of the harmless `:testing:eicar-apk`, computed at build time. Install that APK to
+  see a MALICIOUS verdict end to end.
+
+### 3.5 Background work
 
 - WorkManager with a Hilt worker factory (`ProtectionWorker`). Schedule and constraints: _TBD_.
 
-### 3.5 Persistence
+### 3.6 Persistence
 
-- Room: `BlackShieldDatabase` (schemas exported to `core/data/schemas` for migration tests).
+- Room `BlackShieldDatabase` v2 (schemas exported to `core/data/schemas`; `MigrationTest` checks 1→2 against them):
+  - `malware_signatures`: the hash is the primary key, backed by SQLite's automatic unique index. There are no other
+    indexes.
+  - `signature_algorithms`: the few algorithms in use.
+  - `scan_results`: one row per package, with reasons stored as JSON.
+  - `allow_list` and `quarantine`.
+- Bulk signature imports stream in transactions of 20,000 rows, using multi-row `INSERT` statements. 1M rows import in
+  about 22 s on an emulator; see [performance.md](performance.md).
 - DataStore (Preferences): user settings.
 - Encryption at rest: _TBD_.
 
-### 3.6 Networking
+### 3.7 Networking
 
 - Retrofit + OkHttp + kotlinx.serialization; base URL per build type.
 - Authentication, certificate pinning, retry/backoff: _TBD_.
@@ -104,3 +133,5 @@ Android app                                              backend
 | --- | --- | --- |
 | 2026-11-12 | Monorepo with `android/` and `backend/` | One place for app, API and CI. |
 | 2026-11-12 | AGP 9 built-in Kotlin with convention plugins | Shared configuration across 8 modules. |
+| 2026-11-12 | Signatures in SQLite with a hex TEXT primary key | Simple and indexed; fine to ~1M rows. Revisit (binary keys, `WITHOUT ROWID`, prefix filter) before shipping large feeds. |
+| 2026-11-12 | `QUERY_ALL_PACKAGES` | Malware cannot be found with `<queries>`; allowed by Play for anti-malware apps. |

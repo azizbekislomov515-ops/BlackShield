@@ -81,7 +81,7 @@ jobs:
       # Build before booting the emulator so compilation does not compete with it for CPU.
       - name: Build test APKs
         working-directory: android
-        run: ./gradlew :core:scanner:assembleDebugAndroidTest
+        run: ./gradlew :core:scanner:assembleDebugAndroidTest :core:data:assembleDebugAndroidTest
 
       - name: GoogleTest + instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -93,7 +93,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           working-directory: android
-          script: ./gradlew :core:scanner:connectedNativeTest :core:scanner:connectedDebugAndroidTest
+          script: ./gradlew :core:scanner:connectedNativeTest :core:scanner:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest
 
       - name: Upload device test reports
         if: always()
@@ -101,7 +101,7 @@ jobs:
         with:
           name: android-device-test-reports
           path: |
-            android/core/scanner/build/reports/androidTests/
-            android/core/scanner/build/outputs/androidTest-results/
+            android/core/*/build/reports/androidTests/
+            android/core/*/build/outputs/androidTest-results/
           if-no-files-found: ignore
           retention-days: 14

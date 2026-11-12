@@ -70,7 +70,21 @@ Tests that need a connected device or emulator (`adb devices` must list one):
 - `connectedDebugAndroidTest` runs the instrumented Kotlin tests, including 500 MiB memory and cancellation checks
   and the throughput benchmark (see [docs/performance.md](docs/performance.md)).
 
-Install on a device or emulator with `./gradlew installDebug`. The launch screen shows the result of a JNI call into
+Install on a device or emulator with `./gradlew installDebug`.
+
+**End-to-end detection check.** Debug builds treat the harmless `:testing:eicar-apk` app as malware: its SHA-256 is
+seeded into the signature database at build time.
+
+```bash
+./gradlew :testing:eicar-apk:installDebug :app:installDebug
+```
+
+Open BlackShield and tap **Scan now**. *BlackShield EICAR test* should be listed as **Malicious**. Release builds seed
+no signatures.
+
+The `benchmark` build type (`./gradlew :app:installBenchmark`) is the release configuration signed with the debug
+key. Use it for performance measurements. Permissions and their Play policy justification are in
+[docs/permissions.md](docs/permissions.md). The launch screen shows the result of a JNI call into
 the native scanner, e.g. `pong from native scanner (C++17, arm64-v8a)`.
 
 ### Modules
@@ -78,13 +92,14 @@ the native scanner, e.g. `pong from native scanner (C++17, arm64-v8a)`.
 | Module | Purpose |
 | --- | --- |
 | `:app` | Application shell: Hilt, Timber, WorkManager factory, Material 3 theme |
-| `:core:scanner` | Native scan engine (C++17 via CMake/NDK, JNI) |
-| `:core:data` | Room database and DataStore preferences |
+| `:core:scanner` | Native hash engine (C++17 via CMake/NDK, JNI) and the installed-app scanner |
+| `:core:data` | Room database (signatures, scan results, allow-list, quarantine) and DataStore preferences |
 | `:core:network` | Retrofit + OkHttp + kotlinx.serialization client for the backend |
-| `:feature:scan` | Scan screen (currently shows the native ping) |
+| `:feature:scan` | Scan screen: Scan now, live progress, results with verdicts, details |
 | `:feature:protection` | Background protection worker (WorkManager) |
 | `:feature:webshield` | Web protection (placeholder) |
 | `:feature:settings` | User settings |
+| `:testing:eicar-apk` | Harmless test app whose hash debug builds treat as malware |
 
 Shared build configuration lives in `android/build-logic` as convention plugins (`blackshield.android.application`,
 `blackshield.android.library`, `blackshield.android.compose`, `blackshield.android.feature`, `blackshield.hilt`);

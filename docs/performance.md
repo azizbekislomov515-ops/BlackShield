@@ -69,3 +69,63 @@ Regular files check the flag before each 64 KiB chunk, which takes about 0.2 ms 
 `poll()` with a 50 ms timeout, so a stalled descriptor takes at most about 50 ms to notice the flag. The pipe tests
 deliberately cancel mid-poll. Timing the cancel to land exactly when a poll times out would show an unrealistically
 low ~2 ms.
+
+## Signature store (Room/SQLite) — 2026-11-12
+
+`SignatureStoreScaleTest` (`:core:data`, instrumented) imports **1,000,000 SHA-256 signatures** into the production
+database configuration, on the same emulator (debuggable test APK):
+
+| Operation | Result |
+| --- | --- |
+| Bulk import of 1M rows (`insertAll`, 20,000 rows per transaction) | **22.1 s** (~45,000 rows/s) |
+| Batch lookup of 1,000 hashes (`findMatches`, chunks of 900) | **29–38 ms** |
+| Single `isKnownMalicious` lookup | ~0.39 ms (mostly coroutine and Room dispatch overhead) |
+| Database file size | **189 MB** |
+
+How the import got from 62 s to 22 s:
+
+| Change | Import time for 1M rows |
+| --- | --- |
+| Room `@Insert` list, 5,000 rows per transaction, plus an index on `algorithm` | 61.6 s |
+| Index on `algorithm` dropped, batches sorted by hash, 16 MiB writer page cache | 57.9 s |
+| Multi-row `INSERT OR REPLACE` (150 rows per statement, `MultiRowSignatureWriter`) | **22.1 s** |
+
+Profiling 200k rows showed the per-statement overhead of the framework SQLite API dominates: about 46 µs per row,
+almost the same for Room's generated insert and a hand-written prepared statement. Binding 150 rows per statement
+brought that to about 14 µs per row.
+
+**Known limitation, size:** each signature stores its 64-character hex hash twice, once in the table and once in the
+primary-key index, so 1M rows take about 190 MB. The planned fixes, before shipping a large feed, are binary hash keys
+(32 bytes) in a `WITHOUT ROWID` table, which roughly halves the size, or a prefix filter in front of SQLite.
+
+## Installed-app scan — 2026-11-12
+
+**262 installed packages** on the emulator (system apps plus the test APKs), 2 parallel workers on the 4-vCPU
+emulator (`ScannerModule.PARALLELISM` = half the cores, at most 4):
+
+| Build | Scan time |
+| --- | --- |
+| Debug, hashing on `Dispatchers.IO` (first version) | 25.2 s |
+| Debug, background-priority scan pool | 9.8 – 11.2 s |
+| Benchmark (R8, not debuggable) | 10.0 – 12.0 s |
+
+Responsiveness was measured with `dumpsys gfxinfo` on the `benchmark` build type. That's the release configuration
+signed with the debug key; debuggable builds render several times slower and are not representative. The emulator
+renders on the CPU (SwiftShader), so "slow issue draw commands" are high even when idle. Compare the scan rows against
+the idle-scroll baseline:
+
+| Scenario | Frames | p50 | p90 | p99 | Slow UI-thread frames |
+| --- | --- | --- | --- | --- | --- |
+| Watching a scan (2 runs) | 96–108 | 13–17 ms | 17–28 ms | 21–97 ms | 0–8 |
+| Idle scrolling, no scan (baseline) | 186 | 17 ms | 36 ms | 101 ms | 8 |
+| Scrolling during a scan | 212 | 22 ms | 44 ms | 53 ms | 18 |
+
+What keeps the UI responsive:
+
+- Hashing runs on a fixed pool of `THREAD_PRIORITY_BACKGROUND` threads.
+- Sorting the result list happens on `Dispatchers.Default`.
+- During a scan, list updates are throttled to about 3 per second and progress updates to 10 per second.
+- The `core:data` models are declared stable for Compose (`config/compose/stability.conf`).
+
+**Still to do:** repeat these measurements on a physical mid-range arm64 phone, and add a Macrobenchmark for frame
+timing once a `:benchmark` module exists.
