@@ -27,6 +27,8 @@ import com.blackshield.core.data.model.SignatureAlgorithmEntry
 abstract class BlackShieldDatabase : RoomDatabase() {
     abstract fun signatureDao(): SignatureDao
 
+    abstract fun signatureSyncDao(): SignatureSyncDao
+
     abstract fun scanResultDao(): ScanResultDao
 
     abstract fun allowListDao(): AllowListDao

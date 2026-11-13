@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BlackShield</string>
+    <string name="nav_scan">Scan</string>
+    <string name="nav_settings">Settings</string>
 </resources>

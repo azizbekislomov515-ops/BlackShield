@@ -20,7 +20,20 @@ constructor(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[Keys.REAL_TIME_PROTECTION] = enabled }
     }
 
+    /**
+     * When true, background signature updates wait for an unmetered network (usually Wi-Fi).
+     * Off by default: deltas are small and up-to-date signatures matter more. A manual
+     * "Sync now" always uses any network.
+     */
+    val signatureSyncWifiOnly: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.SIGNATURE_SYNC_WIFI_ONLY] ?: false }
+
+    suspend fun setSignatureSyncWifiOnly(wifiOnly: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.SIGNATURE_SYNC_WIFI_ONLY] = wifiOnly }
+    }
+
     private object Keys {
         val REAL_TIME_PROTECTION = booleanPreferencesKey("real_time_protection")
+        val SIGNATURE_SYNC_WIFI_ONLY = booleanPreferencesKey("signature_sync_wifi_only")
     }
 }

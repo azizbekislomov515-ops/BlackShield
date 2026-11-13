@@ -188,7 +188,63 @@ Rules:
 - Severity and algorithm are lower-case in the API. The app's `Severity` and `SignatureAlgorithm` enums map
   them by name (`high` → `HIGH`, `sha256` → `SHA256`). `family` may be null.
 
-## 4. Security
+## 4. Android client
+
+The app implements section 3 in `:core:sync` (`SignatureSyncEngine`), with one difference in ordering: **all network
+I/O finishes before any database write.** The generic algorithm above holds a transaction open while it pages; on
+Android that would block every other writer (scan results) for the duration of a download.
+
+```
+local  = DataStore version (0 if missing or the file is corrupt)
+remote = GET /version
+local >  remote.version            → full sync (server rebuilt)
+local == remote.version            → compare synced row count with remote.count; differs → full sync
+local == 0                         → full sync
+otherwise:
+    fetch every delta page into memory (validated, folded to one change per hash)
+    409/410                        → full sync
+    more than 100,000 changes      → full sync
+    ONE Room transaction: delete removals, upsert additions
+    DataStore version = until                       (after the commit)
+    until == remote.version and synced count != remote.count → full sync (store damaged)
+
+full sync:
+    GET /full with Accept-Encoding: gzip → file in noBackupFilesDir, as received
+    ONE Room transaction: delete synced rows; parse file, validate each row, insert in batches of 20,000;
+                          end line must match; synced row count must equal header.count, else ROLLBACK
+    DataStore version = header.version              (after the commit)
+    delete the file
+```
+
+Guarantees:
+
+- **Killing the app mid-sync never leaves a mixed state.** Before the transaction nothing has been written; inside it,
+  SQLite rolls back on the next open; after it, the store is complete. If the process dies between the commit and the
+  DataStore write, the stored version is older than the data. The next sync re-applies a delta from that version, and
+  since every hash carries its final state, the result is the same.
+- **Payloads are validated before they are applied.** Hashes must be lower-case hex of the algorithm's length;
+  algorithm and severity must be known values. One bad row fails the whole sync and nothing is applied (an unknown
+  value is not skipped: a skipped row would make the counts disagree and force a snapshot every time).
+- **Rows from other sources** (debug seeds) are never deleted by sync. An addition for the same hash takes the row over.
+
+Errors are recorded in DataStore as `SyncErrorKind` and shown in Settings:
+
+| Kind | Cause | Retried |
+| --- | --- | --- |
+| `NETWORK` | No connection, DNS, timeout | yes |
+| `INCOMPLETE_DOWNLOAD` | Connection dropped mid-body, snapshot without its end line | yes |
+| `SERVER` | 5xx, unexpected status | yes |
+| `RATE_LIMITED` | 429 | yes |
+| `CORRUPT_DATA` | Invalid row, malformed JSON/NDJSON, count mismatch, damaged gzip | yes |
+| `STORAGE` | Disk full, SQLite error | yes |
+| `UNAUTHORIZED` | 401/403: the build's key is missing or revoked | no (next period) |
+| `CERTIFICATE` | TLS or certificate-pin failure | no (next period) |
+
+"Retried" means WorkManager exponential backoff from 30 s, at most 5 attempts per request. Tests: `SignatureSyncEngineTest`
+(MockWebServer: normal and empty deltas, server errors, partial downloads, corrupted payloads, version gaps) and the
+instrumented `SignatureSyncStoreTest` (rollback in Room).
+
+## 5. Security
 
 | Control | Implementation |
 | --- | --- |
@@ -204,7 +260,7 @@ An API key compiled into the app can be extracted, so it identifies the app buil
 rate limiting, key rotation and blocking abusive builds. Per-install signed tokens (e.g. after a Play Integrity
 check) would be the next step if per-device identity is needed.
 
-## 5. Operations
+## 6. Operations
 
 - Tombstones are never deleted. They cost one row per removed signature. If they ever matter, add a compaction
   floor: delete tombstones older than version F and answer `since < F` with 409 (full sync).

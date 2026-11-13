@@ -68,6 +68,7 @@ dependencies {
     implementation(projects.core.scanner)
     implementation(projects.core.data)
     implementation(projects.core.network)
+    implementation(projects.core.sync)
     implementation(projects.feature.scan)
     implementation(projects.feature.protection)
     implementation(projects.feature.webshield)

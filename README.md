@@ -87,6 +87,31 @@ key. Use it for performance measurements. Permissions and their Play policy just
 [docs/permissions.md](docs/permissions.md). The launch screen shows the result of a JNI call into
 the native scanner, e.g. `pong from native scanner (C++17, arm64-v8a)`.
 
+### Backend connection (signature sync)
+
+The app downloads malware signatures from the backend (see [docs/sync-protocol.md](docs/sync-protocol.md)). Connection
+settings come from Gradle properties (`-P…` or `~/.gradle/gradle.properties`) or environment variables; nothing secret
+is committed:
+
+| Property | Environment variable | Default |
+| --- | --- | --- |
+| `blackshield.apiKey` | `BLACKSHIELD_API_KEY` | empty: the backend answers 401 and Settings shows the error |
+| `blackshield.apiBaseUrl` | `BLACKSHIELD_API_BASE_URL` | debug `http://10.0.2.2:8000/`, release `https://api.blackshield.invalid/` |
+| `blackshield.certificatePins` | `BLACKSHIELD_CERTIFICATE_PINS` | empty (no pinning); `host=sha256/…` entries, comma-separated, include a backup pin |
+
+Against a local backend from an emulator (create the key with `blackshield-signatures generate-api-key --id android-dev`):
+
+```bash
+adb reverse tcp:8000 tcp:8000
+```
+
+```bash
+BLACKSHIELD_API_KEY=bs_... BLACKSHIELD_API_BASE_URL=http://localhost:8000/ ./gradlew installDebug
+```
+
+`adb reverse` is only needed when the emulator cannot reach the host at `10.0.2.2`. Debug builds allow plain HTTP to
+`10.0.2.2` and `localhost` only.
+
 ### Modules
 
 | Module | Purpose |
@@ -94,11 +119,12 @@ the native scanner, e.g. `pong from native scanner (C++17, arm64-v8a)`.
 | `:app` | Application shell: Hilt, Timber, WorkManager factory, Material 3 theme |
 | `:core:scanner` | Native hash engine (C++17 via CMake/NDK, JNI) and the installed-app scanner |
 | `:core:data` | Room database (signatures, scan results, allow-list, quarantine) and DataStore preferences |
-| `:core:network` | Retrofit + OkHttp + kotlinx.serialization client for the backend |
+| `:core:network` | Retrofit + OkHttp client for the backend: API key, certificate pinning, typed models, snapshot reader |
+| `:core:sync` | Signature sync: engine, `SignatureSyncWorker` (WorkManager), scheduler, sync state |
 | `:feature:scan` | Scan screen: Scan now, live progress, results with verdicts, details |
 | `:feature:protection` | Background protection worker (WorkManager) |
 | `:feature:webshield` | Web protection (placeholder) |
-| `:feature:settings` | User settings |
+| `:feature:settings` | Settings: real-time protection, signature database status, Sync now, Wi-Fi-only updates |
 | `:testing:eicar-apk` | Harmless test app whose hash debug builds treat as malware |
 
 Shared build configuration lives in `android/build-logic` as convention plugins (`blackshield.android.application`,

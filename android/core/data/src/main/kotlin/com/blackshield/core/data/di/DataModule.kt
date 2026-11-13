@@ -13,14 +13,17 @@ import com.blackshield.core.data.db.QuarantineDao
 import com.blackshield.core.data.db.ScanResultDao
 import com.blackshield.core.data.db.SignatureBulkWriter
 import com.blackshield.core.data.db.SignatureDao
+import com.blackshield.core.data.db.SignatureSyncDao
 import com.blackshield.core.data.repository.AllowListRepository
 import com.blackshield.core.data.repository.OfflineAllowListRepository
 import com.blackshield.core.data.repository.OfflineQuarantineRepository
 import com.blackshield.core.data.repository.OfflineScanResultRepository
 import com.blackshield.core.data.repository.OfflineSignatureRepository
 import com.blackshield.core.data.repository.QuarantineRepository
+import com.blackshield.core.data.repository.RoomSignatureSyncStore
 import com.blackshield.core.data.repository.ScanResultRepository
 import com.blackshield.core.data.repository.SignatureRepository
+import com.blackshield.core.data.repository.SignatureSyncStore
 import com.blackshield.core.data.repository.TransactionRunner
 import dagger.Binds
 import dagger.Module
@@ -40,6 +43,9 @@ internal object DataModule {
 
     @Provides
     fun provideSignatureDao(database: BlackShieldDatabase): SignatureDao = database.signatureDao()
+
+    @Provides
+    fun provideSignatureSyncDao(database: BlackShieldDatabase): SignatureSyncDao = database.signatureSyncDao()
 
     @Provides
     fun provideScanResultDao(database: BlackShieldDatabase): ScanResultDao = database.scanResultDao()
@@ -76,6 +82,10 @@ internal abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSignatureRepository(impl: OfflineSignatureRepository): SignatureRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSignatureSyncStore(impl: RoomSignatureSyncStore): SignatureSyncStore
 
     @Binds
     @Singleton

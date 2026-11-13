@@ -13,8 +13,10 @@ Android app                                              backend
 :app
  ├── :feature:scan ───────┐
  ├── :feature:protection ─┼──► :core:scanner   Kotlin ⇄ JNI ⇄ C++17
- ├── :feature:webshield ──┼──► :core:network   Retrofit ──── HTTPS ────►  FastAPI
- └── :feature:settings ───┴──► :core:data      Room, DataStore            SQLAlchemy 2 + Alembic
+ ├── :feature:webshield ──┤
+ └── :feature:settings ───┼──► :core:sync      WorkManager, sync engine
+                          ├──► :core:network   Retrofit ──── HTTPS ────►  FastAPI
+                          └──► :core:data      Room, DataStore            SQLAlchemy 2 + Alembic
                                                                           PostgreSQL
 ```
 
@@ -86,7 +88,18 @@ Android app                                              backend
 
 ### 3.5 Background work
 
-- WorkManager with a Hilt worker factory (`ProtectionWorker`). Schedule and constraints: _TBD_.
+- WorkManager with a Hilt worker factory, owned by `:app` (`AppModule` provides `WorkManager`).
+- `ProtectionWorker`: schedule and constraints _TBD_.
+- `SignatureSyncWorker` (`:core:sync`), scheduled by `SignatureSyncScheduler` from `BlackShieldApplication`:
+  - periodic, every 6 hours, battery and storage not low, on an unmetered network when the user's *Update over
+    Wi-Fi only* setting is on (default off), otherwise any network. A setting change re-enqueues with
+    `ExistingPeriodicWorkPolicy.UPDATE`, which keeps the current period;
+  - an initial one-time sync when the app starts and has never synced, following the same network setting;
+  - *Sync now* from Settings: one-time, any network.
+  - One-time requests are expedited on Android 12+ (before 12, expedited work needs a foreground-service
+    notification, so it runs as regular work). Retryable failures back off exponentially from 30 s, up to 5
+    attempts; authentication and certificate failures are not retried until the next period.
+  - The algorithm and its consistency guarantees are in [sync-protocol.md](sync-protocol.md#4-android-client).
 
 ### 3.6 Persistence
 
@@ -98,13 +111,25 @@ Android app                                              backend
   - `allow_list` and `quarantine`.
 - Bulk signature imports stream in transactions of 20,000 rows, using multi-row `INSERT` statements. 1M rows import in
   about 22 s on an emulator; see [performance.md](performance.md).
-- DataStore (Preferences): user settings.
+- Signature sync writes through `SignatureSyncStore`: one transaction per delta or snapshot. Synced rows have
+  `source = 'blackshield-cloud'`; rows from other sources (debug seeds) are never deleted by sync.
+- DataStore (Preferences): user settings (`user_preferences`) and sync state (`signature_sync`: version, last
+  success and attempt, last error). A corrupted sync-state file is replaced by an empty one, which forces a full
+  snapshot.
 - Encryption at rest: _TBD_.
 
 ### 3.7 Networking
 
-- Retrofit + OkHttp + kotlinx.serialization; base URL per build type.
-- Authentication, certificate pinning, retry/backoff: _TBD_.
+- Retrofit + OkHttp + kotlinx.serialization (`BlackShieldHttp`), configured by `NetworkConfig` from Gradle properties
+  (see the README): base URL, API key and certificate pins. Nothing secret is committed.
+- Auth: `X-API-Key` on requests to the configured backend origin only; redirects are not followed.
+- Certificate pinning: OkHttp `CertificatePinner` with `host=sha256/…` pins; empty disables it (debug). Release HTTPS
+  only (`network_security_config.xml`); debug builds also allow cleartext to the emulator host (10.0.2.2) and
+  localhost.
+- Timeouts: connect 15 s, read 30 s (between reads, so a large snapshot can stream), write 15 s, no call timeout.
+- gzip: transparent for JSON. The snapshot is requested with an explicit `Accept-Encoding: gzip`, so it arrives
+  compressed and is staged on disk as received.
+- Retries and backoff are WorkManager's (see 3.5), not OkHttp interceptors.
 
 ## 4. Backend
 
@@ -135,3 +160,6 @@ Android app                                              backend
 | 2026-11-12 | AGP 9 built-in Kotlin with convention plugins | Shared configuration across 8 modules. |
 | 2026-11-12 | Signatures in SQLite with a hex TEXT primary key | Simple and indexed; fine to ~1M rows. Revisit (binary keys, `WITHOUT ROWID`, prefix filter) before shipping large feeds. |
 | 2026-11-12 | `QUERY_ALL_PACKAGES` | Malware cannot be found with `<queries>`; allowed by Play for anti-malware apps. |
+| 2026-11-13 | Download first, then one transaction (delta pages in memory, snapshot to a file) | The write transaction never waits on the network, and a killed process can only roll back. |
+| 2026-11-13 | Sync version in DataStore, written after the Room commit | A crash in between leaves an older version; re-applying a delta is idempotent. |
+| 2026-11-13 | Strict payload validation (unknown enum fails the sync) | Silently dropped rows would make counts disagree and force a snapshot on every sync. |

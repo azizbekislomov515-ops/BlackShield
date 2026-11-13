@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_protection">Protection</string>
     <string name="settings_real_time_protection">Real-time protection</string>
+
+    <string name="settings_section_signatures">Malware signatures</string>
+    <string name="settings_signature_version">Database version</string>
+    <string name="settings_signature_version_none">Not downloaded yet</string>
+    <string name="settings_signature_count">Signatures</string>
+    <string name="settings_last_sync">Last updated</string>
+    <string name="settings_last_sync_never">Never</string>
+    <string name="settings_sync_now">Sync now</string>
+    <string name="settings_syncing">Updating signatures…</string>
+    <string name="settings_wifi_only">Update over Wi-Fi only</string>
+    <string name="settings_wifi_only_summary">Automatic updates wait for Wi-Fi or another unmetered network. Sync now always uses any network.</string>
+
+    <string name="settings_sync_error_network">Last update failed: no connection to the update server.</string>
+    <string name="settings_sync_error_incomplete">Last update failed: the download was interrupted.</string>
+    <string name="settings_sync_error_server">Last update failed: the update server had a problem.</string>
+    <string name="settings_sync_error_rate_limited">Last update was postponed: too many requests to the update server.</string>
+    <string name="settings_sync_error_corrupt">Last update failed: the downloaded data was damaged and was discarded.</string>
+    <string name="settings_sync_error_storage">Last update failed: not enough storage space.</string>
+    <string name="settings_sync_error_unauthorized">Updates are not available for this version of BlackShield. Update the app.</string>
+    <string name="settings_sync_error_certificate">Last update stopped: the update server\'s identity could not be verified on this network.</string>
+    <string name="settings_sync_error_unknown">Last update failed.</string>
+    <string name="settings_sync_error_retrying">Your current signatures are still in use. BlackShield will try again automatically.</string>
+    <string name="settings_sync_error_kept">Your current signatures are still in use.</string>
 </resources>
