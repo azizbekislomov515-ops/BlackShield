@@ -89,6 +89,12 @@ fun ScanResultDetailsSheet(
             Text(stringResource(R.string.details_reasons), style = MaterialTheme.typography.titleSmall)
             if (result.reasons.isEmpty()) {
                 Text(stringResource(R.string.details_no_reasons), style = MaterialTheme.typography.bodyMedium)
+            } else if (result.reasons.any { it.points != 0 }) {
+                Text(
+                    stringResource(R.string.details_reasons_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             result.reasons.forEach { reason -> ReasonRow(reason) }
 
@@ -122,6 +128,10 @@ private fun ReasonRow(reason: ScanReason) {
     val text =
         when (reason.code) {
             ScanReason.Code.KNOWN_MALWARE -> stringResource(R.string.reason_known_malware, reason.detail)
+            ScanReason.Code.HEURISTIC -> reason.detail
+            ScanReason.Code.SYSTEM_APP -> stringResource(R.string.reason_system_app)
+            ScanReason.Code.KNOWN_GOOD -> stringResource(R.string.reason_known_good)
+            ScanReason.Code.ANALYSIS_INCOMPLETE -> stringResource(R.string.reason_analysis_incomplete, reason.detail)
             ScanReason.Code.SIDELOADED -> stringResource(R.string.reason_sideloaded, reason.detail)
             ScanReason.Code.SMS_ACCESS -> stringResource(R.string.reason_sms_access, reason.detail)
             ScanReason.Code.INSTALLS_PACKAGES -> stringResource(R.string.reason_installs_packages)
@@ -130,16 +140,37 @@ private fun ReasonRow(reason: ScanReason) {
             ScanReason.Code.ALLOW_LISTED -> stringResource(R.string.reason_allow_listed, reason.detail)
             ScanReason.Code.HASH_FAILED -> stringResource(R.string.reason_hash_failed, reason.detail)
         }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        if (reason.points > 0) {
-            Text(
-                stringResource(R.string.reason_points, reason.points),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("reason")) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text, style = MaterialTheme.typography.bodyMedium)
+            reason.evidence.forEach { fact ->
+                Text(
+                    stringResource(R.string.reason_evidence, fact),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+        PointsLabel(reason)
     }
+}
+
+/** "+15", "−20", or "+5 of 20" when a group cap limited the rule; nothing for 0. */
+@Composable
+private fun PointsLabel(reason: ScanReason) {
+    val fullPoints = reason.rulePoints
+    val label =
+        when {
+            fullPoints != null -> stringResource(R.string.reason_points_capped, reason.points, fullPoints)
+            reason.points > 0 -> stringResource(R.string.reason_points, reason.points)
+            reason.points < 0 -> stringResource(R.string.reason_points_negative, -reason.points)
+            else -> return
+        }
+    Text(
+        label,
+        style = MaterialTheme.typography.labelMedium,
+        color = if (reason.points < 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 private val DATE_FORMAT: DateTimeFormatter =

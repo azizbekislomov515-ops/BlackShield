@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "rulesVersion": "2026-11-13.1",
+  "thresholds": { "suspicious": 40, "malicious": 75 },
+  "trustedInstallers": {
+    "com.android.vending": "Google Play",
+    "com.amazon.venezia": "Amazon Appstore",
+    "com.sec.android.app.samsungapps": "Galaxy Store",
+    "com.huawei.appmarket": "Huawei AppGallery",
+    "com.xiaomi.market": "Xiaomi GetApps",
+    "org.fdroid.fdroid": "F-Droid"
+  },
+  "allowlist": {
+    "systemApps": true,
+    "apps": []
+  },
+  "groups": {
+    "capability": { "maxPoints": 50 }
+  },
+  "lists": {
+    "unknownSources": ["OTHER_INSTALLER", "UNKNOWN"],
+    "smsPermissions": [
+      "android.permission.READ_SMS",
+      "android.permission.RECEIVE_SMS",
+      "android.permission.SEND_SMS",
+      "android.permission.RECEIVE_MMS",
+      "android.permission.RECEIVE_WAP_PUSH"
+    ],
+    "smsReadPermissions": ["android.permission.READ_SMS", "android.permission.RECEIVE_SMS"],
+    "smsActions": ["android.provider.Telephony.SMS_RECEIVED", "android.provider.Telephony.SMS_DELIVER"],
+    "packerClasses": [
+      "com.stub.StubApp",
+      "com.tencent.StubShell.TxAppEntry",
+      "com.secneo.apkwrapper.ApplicationWrapper",
+      "com.secneo.apkwrapper.AW",
+      "com.baidu.protect.StubApplication",
+      "com.shell.SuperApplication",
+      "com.ali.mobisecenhance.StubApplication"
+    ],
+    "packerLibraries": [
+      "libjiagu*.so",
+      "libshella*.so",
+      "libshellx*.so",
+      "libsecexe*.so",
+      "libsecmain*.so",
+      "libDexHelper*.so",
+      "libbaiduprotect*.so",
+      "libexecmain*.so",
+      "libmobisec*.so"
+    ]
+  },
+  "rules": [
+    {
+      "id": "installed_from_play",
+      "title": "Installed from Google Play, which reviews apps and scans them with Play Protect",
+      "points": -20,
+      "when": { "installSource": "PLAY_STORE" }
+    },
+    {
+      "id": "installed_from_known_store",
+      "title": "Installed from a known app store",
+      "points": -10,
+      "when": { "installSource": "TRUSTED_STORE" }
+    },
+    {
+      "id": "unknown_source",
+      "title": "Installed from outside an app store, so nobody reviewed it before it reached your phone",
+      "points": 15,
+      "when": { "installSource": "@unknownSources" }
+    },
+    {
+      "id": "banking_trojan_capabilities",
+      "title": "Can read your text messages, see and control the screen through an accessibility service, and draw over other apps. Banking trojans use this combination to steal passwords and one-time codes",
+      "points": 35,
+      "group": "capability",
+      "when": {
+        "all": [
+          { "requestsAnyPermission": "@smsPermissions" },
+          { "componentWithPermission": "android.permission.BIND_ACCESSIBILITY_SERVICE" },
+          { "requestsPermission": "android.permission.SYSTEM_ALERT_WINDOW" }
+        ]
+      }
+    },
+    {
+      "id": "device_admin_unknown_source",
+      "title": "Wants to be a device administrator although it did not come from an app store. Admin rights let an app lock or wipe the phone and make it hard to uninstall",
+      "points": 20,
+      "group": "capability",
+      "when": {
+        "all": [
+          {
+            "any": [
+              { "componentWithPermission": "android.permission.BIND_DEVICE_ADMIN" },
+              { "requestsPermission": "android.permission.BIND_DEVICE_ADMIN" }
+            ]
+          },
+          { "installSource": "@unknownSources" }
+        ]
+      }
+    },
+    {
+      "id": "installs_other_apps_unknown_source",
+      "title": "Can install other apps and did not come from an app store. Malware uses this to download and install more malware",
+      "points": 15,
+      "group": "capability",
+      "when": {
+        "all": [
+          { "requestsPermission": "android.permission.REQUEST_INSTALL_PACKAGES" },
+          { "installSource": "@unknownSources" }
+        ]
+      }
+    },
+    {
+      "id": "many_sensitive_permissions_unknown_source",
+      "title": "Asks for many sensitive permissions (contacts, location, microphone and the like) and did not come from an app store",
+      "points": 15,
+      "group": "capability",
+      "when": {
+        "all": [
+          { "dangerousPermissionsAtLeast": 10 },
+          { "installSource": "@unknownSources" }
+        ]
+      }
+    },
+    {
+      "id": "reads_sms_unknown_source",
+      "title": "Can read incoming text messages, where banks send one-time codes, and did not come from an app store",
+      "points": 15,
+      "group": "capability",
+      "when": {
+        "all": [
+          {
+            "any": [
+              { "requestsAnyPermission": "@smsReadPermissions" },
+              { "handlesAction": "@smsActions" }
+            ]
+          },
+          { "installSource": "@unknownSources" }
+        ]
+      }
+    },
+    {
+      "id": "accessibility_enabled_unknown_source",
+      "title": "Its accessibility service is switched on, so it can read the screen and tap for you, and it did not come from an app store",
+      "points": 15,
+      "group": "capability",
+      "when": { "all": [{ "accessibilityEnabled": true }, { "installSource": "@unknownSources" }] }
+    },
+    {
+      "id": "device_admin_active_unknown_source",
+      "title": "Is an active device administrator and did not come from an app store",
+      "points": 10,
+      "group": "capability",
+      "when": { "all": [{ "deviceAdminActive": true }, { "installSource": "@unknownSources" }] }
+    },
+    {
+      "id": "hidden_launcher_icon",
+      "title": "Has hidden its icon from the app drawer, a common trick to avoid being noticed and removed",
+      "points": 30,
+      "when": { "launcher": "HIDDEN" }
+    },
+    {
+      "id": "no_launcher_icon_unknown_source",
+      "title": "Has no icon in the app drawer and did not come from an app store",
+      "points": 10,
+      "when": { "all": [{ "launcher": "NONE_DECLARED" }, { "installSource": "@unknownSources" }] }
+    },
+    {
+      "id": "packed",
+      "title": "Is wrapped in a packer that hides its real code from inspection",
+      "points": 25,
+      "when": {
+        "any": [
+          { "applicationClassIn": "@packerClasses" },
+          { "nativeLibraryMatches": "@packerLibraries" }
+        ]
+      }
+    },
+    {
+      "id": "obfuscated_component_names",
+      "title": "Most of its declared components have meaningless short names, which normal build tools keep readable",
+      "points": 20,
+      "when": { "obfuscatedComponents": { "minComponents": 3, "minShare": 0.5 } }
+    },
+    {
+      "id": "aosp_test_key",
+      "title": "Is signed with one of Android's public test keys, which anyone can use, to pass itself off as a system component",
+      "points": 50,
+      "when": { "certificate": "AOSP_TEST_KEY" }
+    },
+    {
+      "id": "legacy_target_sdk_unknown_source",
+      "title": "Targets Android 5.1 or older, so its permissions were granted at install without asking you, and it did not come from an app store",
+      "points": 15,
+      "when": { "all": [{ "targetSdkBelow": 23 }, { "installSource": "@unknownSources" }] }
+    },
+    {
+      "id": "development_build_unknown_source",
+      "title": "Is a development build (debug-signed or debuggable) that did not come from an app store",
+      "points": 10,
+      "when": {
+        "all": [
+          { "any": [{ "certificate": "DEBUG" }, { "debuggable": true }] },
+          { "installSource": "@unknownSources" }
+        ]
+      }
+    },
+    {
+      "id": "recently_sideloaded",
+      "title": "Was installed in the last 3 days from a downloaded file (browser or file manager), the usual way malware arrives",
+      "points": 5,
+      "when": { "all": [{ "installedWithinDays": 3 }, { "installSource": "OTHER_INSTALLER" }] }
+    }
+  ]
+}

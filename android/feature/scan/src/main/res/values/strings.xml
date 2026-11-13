@@ -30,6 +30,7 @@
     <string name="details_scanned_at">Scanned</string>
     <string name="details_reasons">Findings</string>
     <string name="details_no_reasons">Nothing found.</string>
+    <string name="details_reasons_hint">Each finding adds or removes points; together they make the risk score out of 100.</string>
     <string name="details_trust">Trust this app</string>
     <string name="details_trust_hint">Suppresses heuristic warnings from the next scan. Known malware is still reported.</string>
 
@@ -42,4 +43,10 @@
     <string name="reason_allow_listed">%1$s</string>
     <string name="reason_hash_failed">Could not read %1$s</string>
     <string name="reason_points">+%1$d</string>
+    <string name="reason_points_negative">−%1$d</string>
+    <string name="reason_points_capped">+%1$d of %2$d</string>
+    <string name="reason_evidence">• %1$s</string>
+    <string name="reason_system_app">Preinstalled with the system, so it is not judged by behaviour rules</string>
+    <string name="reason_known_good">On BlackShield\'s list of known-good apps</string>
+    <string name="reason_analysis_incomplete">Part of this app could not be analyzed: %1$s</string>
 </resources>

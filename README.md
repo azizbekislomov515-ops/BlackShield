@@ -117,7 +117,7 @@ BLACKSHIELD_API_KEY=bs_... BLACKSHIELD_API_BASE_URL=http://localhost:8000/ ./gra
 | Module | Purpose |
 | --- | --- |
 | `:app` | Application shell: Hilt, Timber, WorkManager factory, Material 3 theme |
-| `:core:scanner` | Native hash engine (C++17 via CMake/NDK, JNI) and the installed-app scanner |
+| `:core:scanner` | Native hash engine (C++17 via CMake/NDK, JNI), installed-app scanner, static analysis (`ApkAnalyzer`) and the rule-based `RiskEngine` ([docs/risk-rules.md](docs/risk-rules.md)) |
 | `:core:data` | Room database (signatures, scan results, allow-list, quarantine) and DataStore preferences |
 | `:core:network` | Retrofit + OkHttp client for the backend: API key, certificate pinning, typed models, snapshot reader |
 | `:core:sync` | Signature sync: engine, `SignatureSyncWorker` (WorkManager), scheduler, sync state |

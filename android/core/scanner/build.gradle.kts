@@ -32,8 +32,11 @@ android {
 dependencies {
     api(projects.core.data)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.timber)
 
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.tls)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

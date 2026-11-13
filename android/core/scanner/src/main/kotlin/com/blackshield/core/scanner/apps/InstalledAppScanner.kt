@@ -6,6 +6,7 @@ import com.blackshield.core.data.model.Verdict
 import com.blackshield.core.data.repository.AllowListRepository
 import com.blackshield.core.data.repository.ScanResultRepository
 import com.blackshield.core.data.repository.SignatureRepository
+import com.blackshield.core.scanner.analysis.ApkAnalyzer
 import com.blackshield.core.scanner.di.ScanDispatcher
 import com.blackshield.core.scanner.di.ScanParallelism
 import com.blackshield.core.scanner.hash.FileHasher
@@ -57,7 +58,8 @@ class ScanControl {
 
 /**
  * Scans every installed app: hashes the base and split APKs with the native engine, looks the
- * digests up in the signature store, assesses risk, persists each result and emits progress.
+ * digests up in the signature store, analyzes the APK statically ([ApkAnalyzer]), assesses risk
+ * ([RiskAssessor]), persists each result and emits progress.
  *
  * Apps are processed by [parallelism] workers on a bounded dispatcher. Cancelling collection stops
  * the scan (in-flight native hashes are cancelled too); results saved so far are kept. When the scan
@@ -71,6 +73,8 @@ constructor(
     private val signatures: SignatureRepository,
     private val results: ScanResultRepository,
     private val allowList: AllowListRepository,
+    private val analyzer: ApkAnalyzer,
+    private val assessor: RiskAssessor,
     @param:ScanDispatcher private val dispatcher: CoroutineDispatcher,
     @param:ScanParallelism private val parallelism: Int,
     private val clock: Clock
@@ -82,6 +86,7 @@ constructor(
         val algorithms =
             signatures.algorithmsInUse().map { it.toHashAlgorithm() }.toSet() + HashAlgorithm.SHA256
         val allowed = allowList.allowedPackages()
+        val analysis = analyzer.startSession()
         send(ScanProgress.Started(apps.size))
 
         val queue = Channel<InstalledApp>(Channel.UNLIMITED)
@@ -96,7 +101,7 @@ constructor(
                 launch(dispatcher) {
                     for (app in queue) {
                         control.awaitResumed()
-                        val result = scanApp(app, algorithms, app.packageName in allowed)
+                        val result = scanApp(app, algorithms, app.packageName in allowed, analysis)
                         results.save(result)
                         when (result.verdict) {
                             Verdict.MALICIOUS -> malicious.incrementAndGet()
@@ -113,7 +118,12 @@ constructor(
         send(ScanProgress.Completed(apps.size, malicious.get(), suspicious.get(), clock.millis() - startedAt))
     }
 
-    private suspend fun scanApp(app: InstalledApp, algorithms: Set<HashAlgorithm>, allowListed: Boolean): ScanResult {
+    private suspend fun scanApp(
+        app: InstalledApp,
+        algorithms: Set<HashAlgorithm>,
+        allowListed: Boolean,
+        analysis: ApkAnalyzer.Session
+    ): ScanResult {
         val digestsByPath = LinkedHashMap<String, MutableMap<HashAlgorithm, String>>()
         val failures = mutableListOf<String>()
         for (path in app.apkPaths) {
@@ -133,7 +143,7 @@ constructor(
             digestsByPath.flatMap { (path, digests) ->
                 digests.values.mapNotNull { digest -> signatureByHash[digest]?.let { SignatureMatch(path, it) } }
             }
-        val assessment = RiskAssessor.assess(app, matches, failures, allowListed)
+        val assessment = assessor.assess(analysis.analyze(app), matches, failures, allowListed)
         val baseApk = app.apkPaths.first()
         return ScanResult(
             packageName = app.packageName,

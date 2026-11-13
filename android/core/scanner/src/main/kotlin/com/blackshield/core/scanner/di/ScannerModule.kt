@@ -3,10 +3,14 @@ package com.blackshield.core.scanner.di
 import android.os.Process
 import com.blackshield.core.scanner.NativeScannerEngine
 import com.blackshield.core.scanner.ScannerEngine
+import com.blackshield.core.scanner.analysis.ApkAnalyzer
+import com.blackshield.core.scanner.analysis.PackageManagerApkAnalyzer
 import com.blackshield.core.scanner.apps.InstalledAppSource
 import com.blackshield.core.scanner.apps.PackageManagerAppSource
 import com.blackshield.core.scanner.hash.FileHasher
 import com.blackshield.core.scanner.hash.NativeHasher
+import com.blackshield.core.scanner.risk.BundledRiskRulesSource
+import com.blackshield.core.scanner.risk.RiskRulesSource
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -38,6 +42,12 @@ internal abstract class ScannerModule {
 
     @Binds
     abstract fun bindInstalledAppSource(impl: PackageManagerAppSource): InstalledAppSource
+
+    @Binds
+    abstract fun bindApkAnalyzer(impl: PackageManagerApkAnalyzer): ApkAnalyzer
+
+    @Binds
+    abstract fun bindRiskRulesSource(impl: BundledRiskRulesSource): RiskRulesSource
 
     companion object {
         /** Hashing is CPU-bound; leave cores free for the UI thread and the rest of the system. */

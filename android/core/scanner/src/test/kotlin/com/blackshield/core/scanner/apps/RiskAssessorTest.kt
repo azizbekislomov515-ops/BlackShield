@@ -5,112 +5,133 @@ import com.blackshield.core.data.model.ScanReason.Code
 import com.blackshield.core.data.model.Severity
 import com.blackshield.core.data.model.SignatureAlgorithm
 import com.blackshield.core.data.model.Verdict
+import com.blackshield.core.scanner.analysis.LauncherState
+import com.blackshield.core.scanner.risk.RiskRulesSource
+import com.blackshield.core.scanner.risk.TestProfiles
+import com.blackshield.core.scanner.risk.TestProfiles.OVERLAY
+import com.blackshield.core.scanner.risk.TestProfiles.PACKAGE_INSTALLER
+import com.blackshield.core.scanner.risk.TestProfiles.RECEIVE_SMS
+import com.blackshield.core.scanner.risk.TestProfiles.accessibilityService
+import com.blackshield.core.scanner.risk.TestProfiles.activity
+import com.blackshield.core.scanner.risk.TestProfiles.profile
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RiskAssessorTest {
-    @Test
-    fun `play store app with ordinary permissions is clean with no findings`() {
-        val assessment = RiskAssessor.assess(app(installer = "com.android.vending"), emptyList(), emptyList(), false)
-
-        assertEquals(Assessment(Verdict.CLEAN, 0, emptyList()), assessment)
-    }
-
-    @Test
-    fun `sideloading alone is not enough to be suspicious`() {
-        val assessment = RiskAssessor.assess(app(installer = null), emptyList(), emptyList(), false)
-
-        assertEquals(Verdict.CLEAN, assessment.verdict)
-        assertEquals(RiskAssessor.SIDELOADED_POINTS, assessment.riskScore)
-        assertEquals(listOf(Code.SIDELOADED), assessment.reasons.map { it.code })
-    }
-
-    @Test
-    fun `sideloaded app reading SMS and drawing over apps is suspicious`() {
-        val app =
-            app(
-                installer = "com.example.browser",
-                permissions = setOf("android.permission.RECEIVE_SMS", "android.permission.SYSTEM_ALERT_WINDOW")
-            )
-
-        val assessment = RiskAssessor.assess(app, emptyList(), emptyList(), false)
-
-        assertEquals(Verdict.SUSPICIOUS, assessment.verdict)
-        assertEquals(60, assessment.riskScore)
-        assertEquals(listOf(Code.SIDELOADED, Code.SMS_ACCESS, Code.DRAWS_OVER_APPS), assessment.reasons.map { it.code })
-    }
-
-    @Test
-    fun `score is capped at 100`() {
-        val app =
-            app(
-                installer = null,
-                debuggable = true,
-                permissions =
-                    setOf(
-                        "android.permission.SEND_SMS",
-                        "android.permission.REQUEST_INSTALL_PACKAGES",
-                        "android.permission.SYSTEM_ALERT_WINDOW"
-                    )
-            )
-
-        assertEquals(85, RiskAssessor.assess(app, emptyList(), emptyList(), false).riskScore)
-    }
-
-    @Test
-    fun `system apps are not judged by permission heuristics`() {
-        val app = app(installer = null, system = true, permissions = setOf("android.permission.READ_SMS"))
-
-        assertEquals(
-            Assessment(Verdict.CLEAN, 0, emptyList()),
-            RiskAssessor.assess(app, emptyList(), emptyList(), false)
+    private val assessor =
+        RiskAssessor(
+            RiskRulesSource {
+                TestProfiles.SHIPPED_RULES
+            },
+            Clock.fixed(Instant.ofEpochMilli(TestProfiles.NOW), ZoneOffset.UTC)
         )
-    }
+
+    private val banker =
+        profile(
+            installer = PACKAGE_INSTALLER,
+            permissions = setOf(RECEIVE_SMS, OVERLAY),
+            components = listOf(activity("com.x.Main"), accessibilityService("com.x.Svc")),
+            launcher = LauncherState.HIDDEN
+        )
 
     @Test
-    fun `known malware is malicious with the severity score, even when allow-listed`() {
-        val match = SignatureMatch("/data/app/x/split_config.apk", signature(Severity.MEDIUM))
-
-        val assessment = RiskAssessor.assess(app(installer = null), listOf(match), emptyList(), allowListed = true)
-
-        assertEquals(Verdict.MALICIOUS, assessment.verdict)
-        assertEquals(Severity.MEDIUM.riskScore, assessment.riskScore)
-        assertEquals(listOf(Code.KNOWN_MALWARE, Code.ALLOW_LISTED), assessment.reasons.map { it.code })
-        assertTrue(assessment.reasons.first().detail.contains("split_config.apk"))
-    }
-
-    @Test
-    fun `allow-listed apps skip heuristics`() {
-        val app =
-            app(
-                installer = null,
-                permissions = setOf("android.permission.READ_SMS", "android.permission.SYSTEM_ALERT_WINDOW")
-            )
-
-        val assessment = RiskAssessor.assess(app, emptyList(), emptyList(), allowListed = true)
+    fun `play store app with ordinary permissions is clean and says why`() {
+        val assessment = assessor.assess(profile(), emptyList(), emptyList(), allowListed = false)
 
         assertEquals(Verdict.CLEAN, assessment.verdict)
         assertEquals(0, assessment.riskScore)
+        val reason = assessment.reasons.single()
+        assertEquals(Code.HEURISTIC, reason.code)
+        assertEquals("installed_from_play", reason.ruleId)
+        assertEquals(-20, reason.points)
+    }
+
+    @Test
+    fun `heuristic findings become reasons with titles, evidence and points`() {
+        val assessment = assessor.assess(banker, emptyList(), emptyList(), allowListed = false)
+
+        assertEquals(Verdict.MALICIOUS, assessment.verdict)
+        assertEquals(
+            listOf("unknown_source", "banking_trojan_capabilities", "reads_sms_unknown_source", "hidden_launcher_icon"),
+            assessment.reasons.map {
+                it.ruleId
+            }
+        )
+        assertTrue(
+            assessment.reasons.all {
+                it.code == Code.HEURISTIC && it.detail.isNotBlank() &&
+                    it.evidence.isNotEmpty()
+            }
+        )
+        assertEquals(assessment.riskScore, assessment.reasons.sumOf { it.points })
+    }
+
+    @Test
+    fun `capped findings keep the rule's full points for display`() {
+        val capped =
+            banker.copy(
+                launcher = LauncherState.VISIBLE,
+                accessibilityServiceEnabled = true,
+                deviceAdminActive = true
+            )
+
+        val reasons = assessor.assess(capped, emptyList(), emptyList(), allowListed = false).reasons
+
+        val enabled = reasons.single { it.ruleId == "accessibility_enabled_unknown_source" }
+        assertEquals(0, enabled.points) // 35 + 15 already used the capability cap of 50
+        assertEquals(15, enabled.rulePoints)
+        assertEquals(null, reasons.single { it.ruleId == "banking_trojan_capabilities" }.rulePoints)
+    }
+
+    @Test
+    fun `known malware is malicious with the severity score and skips heuristics, even when trusted`() {
+        val match = SignatureMatch("/data/app/x/base.apk", signature(Severity.CRITICAL))
+
+        val assessment = assessor.assess(banker, listOf(match), emptyList(), allowListed = true)
+
+        assertEquals(Verdict.MALICIOUS, assessment.verdict)
+        assertEquals(100, assessment.riskScore)
+        assertEquals(listOf(Code.KNOWN_MALWARE, Code.ALLOW_LISTED), assessment.reasons.map { it.code })
+        assertTrue(assessment.reasons.first().detail.contains("base.apk"))
+    }
+
+    @Test
+    fun `apps trusted by the user skip heuristics`() {
+        val assessment = assessor.assess(banker, emptyList(), emptyList(), allowListed = true)
+
+        assertEquals(Verdict.CLEAN, assessment.verdict)
         assertEquals(listOf(Code.ALLOW_LISTED), assessment.reasons.map { it.code })
     }
 
-    private fun app(
-        installer: String?,
-        permissions: Set<String> = setOf("android.permission.INTERNET"),
-        system: Boolean = false,
-        debuggable: Boolean = false
-    ) = InstalledApp(
-        packageName = "com.example.app",
-        label = "Example",
-        versionCode = 1,
-        apkPaths = listOf("/data/app/x/base.apk"),
-        isSystemApp = system,
-        isDebuggable = debuggable,
-        installerPackage = installer,
-        requestedPermissions = permissions
-    )
+    @Test
+    fun `system apps are clean with the exemption explained`() {
+        val assessment = assessor.assess(banker.copy(isSystemApp = true), emptyList(), emptyList(), allowListed = false)
+
+        assertEquals(Verdict.CLEAN, assessment.verdict)
+        assertEquals(listOf(Code.SYSTEM_APP), assessment.reasons.map { it.code })
+    }
+
+    @Test
+    fun `analysis gaps and hash failures are reported without points`() {
+        val assessment =
+            assessor.assess(
+                profile().copy(analysisGaps = listOf("manifest unreadable: bad chunk")),
+                emptyList(),
+                listOf("split.apk: permission denied"),
+                false
+            )
+
+        assertEquals(
+            listOf(Code.HEURISTIC, Code.ANALYSIS_INCOMPLETE, Code.HASH_FAILED),
+            assessment.reasons.map { it.code }
+        )
+        assertTrue(assessment.reasons.drop(1).all { it.points == 0 })
+    }
 
     private fun signature(severity: Severity) =
-        MalwareSignature("ab".repeat(32), SignatureAlgorithm.SHA256, "Test.Trojan", "unit-test", severity, 0)
+        MalwareSignature("a".repeat(64), SignatureAlgorithm.SHA256, "Test.Banker", "unit-test", severity, 0)
 }

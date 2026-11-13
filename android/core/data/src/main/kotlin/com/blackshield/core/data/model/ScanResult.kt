@@ -8,25 +8,49 @@ import kotlinx.serialization.Serializable
 
 enum class Verdict { CLEAN, SUSPICIOUS, MALICIOUS }
 
-/** Why a verdict was reached. Stored as JSON in [ScanResult.reasons]. */
+/**
+ * Why a verdict was reached. Stored as JSON in [ScanResult.reasons], so fields are added with
+ * defaults and old rows keep decoding.
+ */
 @Serializable
 data class ScanReason(
     val code: Code,
-    /** Human-readable detail, e.g. the malware family or the permission name. */
+    /** Human-readable detail: the malware family, or for [Code.HEURISTIC] the rule's plain-language title. */
     val detail: String = "",
-    /** Points this reason added to the risk score. */
-    val points: Int = 0
+    /** Points this reason added to the risk score (negative for signs of trust). */
+    val points: Int = 0,
+    /** For [Code.HEURISTIC]: the risk rule that matched. */
+    val ruleId: String? = null,
+    /** For [Code.HEURISTIC]: the facts that triggered the rule. */
+    val evidence: List<String> = emptyList(),
+    /** For [Code.HEURISTIC]: the rule's full points when a group cap reduced [points]; else null. */
+    val rulePoints: Int? = null
 ) {
     @Serializable
     enum class Code {
         KNOWN_MALWARE,
+
+        /** A static-analysis risk rule matched (see RiskEngine). */
+        HEURISTIC,
+
+        /** Preinstalled system app: heuristics are not applied. */
+        SYSTEM_APP,
+
+        /** On the risk rules' known-good list. */
+        KNOWN_GOOD,
+
+        /** Part of the app could not be analyzed; the verdict is based on the rest. */
+        ANALYSIS_INCOMPLETE,
+
+        ALLOW_LISTED,
+        HASH_FAILED,
+
+        // Fixed heuristics from before the rule engine; still decoded and shown for older results.
         SIDELOADED,
         SMS_ACCESS,
         INSTALLS_PACKAGES,
         DRAWS_OVER_APPS,
-        DEBUGGABLE,
-        ALLOW_LISTED,
-        HASH_FAILED
+        DEBUGGABLE
     }
 }
 

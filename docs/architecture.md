@@ -72,12 +72,13 @@ Android app                                              backend
   - The base and split APKs are hashed. SHA-256 is always computed; MD5 and SHA-1 only if the store holds
     signatures of that type.
   - All digests are looked up in one batch (`SignatureRepository.findMatches`).
+  - `ApkAnalyzer` extracts an `AppProfile` (permissions, components with intent filters from the binary manifest,
+    signing certificates, installer, launcher state, packer traces). See [risk-rules.md](risk-rules.md).
   - `RiskAssessor` turns the evidence into a verdict:
     - **MALICIOUS** on any signature match. This applies even to allow-listed apps.
-    - **SUSPICIOUS** at 50+ heuristic points: sideloaded +25, SMS +20, installs packages +15, overlay +15,
-      debuggable +10.
-    - **CLEAN** otherwise.
-    - Heuristics apply only to user-installed apps that are not allow-listed.
+    - Otherwise `RiskEngine` scores the profile with JSON rules (`assets/risk/risk_rules.json`): 40+ is
+      SUSPICIOUS, 75+ MALICIOUS. Every point comes with a plain-language reason and its evidence.
+    - System apps and apps the user trusts are not scored.
 - **Execution:** `ScanControl` handles pause and resume, and cancelling the collecting coroutine stops the scan.
   Workers run on a fixed pool of background-priority threads.
 - **Persistence:** each result is saved as it completes (one row per package). After a complete scan, results for
@@ -159,6 +160,8 @@ Android app                                              backend
 | 2026-11-12 | Monorepo with `android/` and `backend/` | One place for app, API and CI. |
 | 2026-11-12 | AGP 9 built-in Kotlin with convention plugins | Shared configuration across 8 modules. |
 | 2026-11-12 | Signatures in SQLite with a hex TEXT primary key | Simple and indexed; fine to ~1M rows. Revisit (binary keys, `WITHOUT ROWID`, prefix filter) before shipping large feeds. |
+| 2026-11-13 | Static analysis rules as JSON, strict schema, capability cap | Updatable from the backend; a bad file is rejected whole; capabilities alone cannot make an app malicious. |
+| 2026-11-13 | Own binary-manifest parser, attributes by resource ID | PackageManager hides intent filters; reading attributes like the platform defeats renamed-attribute tricks. |
 | 2026-11-12 | `QUERY_ALL_PACKAGES` | Malware cannot be found with `<queries>`; allowed by Play for anti-malware apps. |
 | 2026-11-13 | Download first, then one transaction (delta pages in memory, snapshot to a file) | The write transaction never waits on the network, and a killed process can only roll back. |
 | 2026-11-13 | Sync version in DataStore, written after the Room commit | A crash in between leaves an older version; re-applying a delta is idempotent. |

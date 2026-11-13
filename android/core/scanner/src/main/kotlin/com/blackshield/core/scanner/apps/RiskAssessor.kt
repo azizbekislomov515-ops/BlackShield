@@ -4,6 +4,13 @@ import com.blackshield.core.data.model.MalwareSignature
 import com.blackshield.core.data.model.ScanReason
 import com.blackshield.core.data.model.ScanReason.Code
 import com.blackshield.core.data.model.Verdict
+import com.blackshield.core.scanner.analysis.AppProfile
+import com.blackshield.core.scanner.risk.Exemption
+import com.blackshield.core.scanner.risk.RiskEngine
+import com.blackshield.core.scanner.risk.RiskEvaluation
+import com.blackshield.core.scanner.risk.RiskRulesSource
+import java.time.Clock
+import javax.inject.Inject
 
 /** Verdict, 0-100 risk score and the reasons behind them. */
 data class Assessment(val verdict: Verdict, val riskScore: Int, val reasons: List<ScanReason>)
@@ -12,50 +19,28 @@ data class Assessment(val verdict: Verdict, val riskScore: Int, val reasons: Lis
 data class SignatureMatch(val apkPath: String, val signature: MalwareSignature)
 
 /**
- * Turns scan evidence into a verdict. Deliberately simple and explainable:
+ * Turns scan evidence into a verdict:
  *
- * - Any known-malware digest match makes the app MALICIOUS (score from the signature severity),
- *   even if the user allow-listed it.
- * - Otherwise a few heuristics add points, for user-installed apps only (preinstalled system apps
- *   legitimately hold these permissions), and not for allow-listed apps. At
- *   [SUSPICIOUS_THRESHOLD] points or more the app is SUSPICIOUS, below it CLEAN. No single
- *   heuristic reaches the threshold on its own.
+ * - A known-malware digest match makes the app MALICIOUS (score from the signature severity), even
+ *   if the user trusts it. Heuristics are not needed then.
+ * - Apps the user trusts skip heuristics.
+ * - Everything else is scored by the [RiskEngine] rules; every point comes with a reason.
+ *
+ * What could not be analyzed is listed too (with 0 points), so a verdict never silently rests on
+ * missing data.
  */
-object RiskAssessor {
-    const val SUSPICIOUS_THRESHOLD = 50
-    private const val MAX_SCORE = 100
-
-    const val SIDELOADED_POINTS = 25
-    const val SMS_POINTS = 20
-    const val INSTALL_PACKAGES_POINTS = 15
-    const val OVERLAY_POINTS = 15
-    const val DEBUGGABLE_POINTS = 10
-
-    /** App stores whose installs are not counted as sideloaded. */
-    val TRUSTED_INSTALLERS =
-        setOf(
-            "com.android.vending", // Google Play
-            "com.amazon.venezia", // Amazon Appstore
-            "com.sec.android.app.samsungapps", // Galaxy Store
-            "com.huawei.appmarket", // AppGallery
-            "com.xiaomi.market" // GetApps
-        )
-
-    private val SMS_PERMISSIONS =
-        setOf(
-            "android.permission.READ_SMS",
-            "android.permission.RECEIVE_SMS",
-            "android.permission.SEND_SMS"
-        )
+class RiskAssessor
+@Inject
+constructor(private val rules: RiskRulesSource, private val clock: Clock) {
+    private val engine: RiskEngine by lazy { RiskEngine(rules.rules()) }
 
     fun assess(
-        app: InstalledApp,
+        profile: AppProfile,
         matches: List<SignatureMatch>,
         hashFailures: List<String>,
         allowListed: Boolean
     ): Assessment {
         val reasons = mutableListOf<ScanReason>()
-
         matches.forEach { match ->
             reasons +=
                 ScanReason(
@@ -70,36 +55,42 @@ object RiskAssessor {
             val detail = if (matches.isEmpty()) "Trusted by you" else "Trusted by you; ignored for known malware"
             reasons += ScanReason(Code.ALLOW_LISTED, detail)
         }
-        if (!app.isSystemApp && !allowListed) {
-            reasons += heuristics(app)
-        }
+        val evaluation = if (matches.isEmpty() && !allowListed) engine.evaluate(profile, clock.millis()) else null
+        evaluation?.let { reasons += reasonsFor(it) }
+        profile.analysisGaps.forEach { reasons += ScanReason(Code.ANALYSIS_INCOMPLETE, it) }
         hashFailures.forEach { reasons += ScanReason(Code.HASH_FAILED, it) }
 
-        return if (matches.isNotEmpty()) {
-            Assessment(Verdict.MALICIOUS, matches.maxOf { it.signature.severity.riskScore }, reasons)
-        } else {
-            val score = reasons.sumOf { it.points }.coerceAtMost(MAX_SCORE)
-            val verdict = if (score >= SUSPICIOUS_THRESHOLD) Verdict.SUSPICIOUS else Verdict.CLEAN
-            Assessment(verdict, score, reasons)
+        return when {
+            matches.isNotEmpty() ->
+                Assessment(Verdict.MALICIOUS, matches.maxOf { it.signature.severity.riskScore }, reasons)
+
+            evaluation != null -> Assessment(evaluation.verdict, evaluation.score, reasons)
+
+            else -> Assessment(Verdict.CLEAN, 0, reasons)
         }
     }
 
-    private fun heuristics(app: InstalledApp): List<ScanReason> = buildList {
-        if (app.installerPackage !in TRUSTED_INSTALLERS) {
-            add(ScanReason(Code.SIDELOADED, "Installer: ${app.installerPackage ?: "unknown"}", SIDELOADED_POINTS))
+    private fun reasonsFor(evaluation: RiskEvaluation): List<ScanReason> = buildList {
+        when (evaluation.exemption) {
+            Exemption.SYSTEM_APP -> add(ScanReason(Code.SYSTEM_APP, "Preinstalled with the system"))
+
+            Exemption.KNOWN_GOOD -> add(
+                ScanReason(Code.KNOWN_GOOD, "On the known-good list (rules ${evaluation.rulesVersion})")
+            )
+
+            null -> Unit
         }
-        val sms = app.requestedPermissions intersect SMS_PERMISSIONS
-        if (sms.isNotEmpty()) {
-            add(ScanReason(Code.SMS_ACCESS, sms.sorted().joinToString { it.substringAfterLast('.') }, SMS_POINTS))
-        }
-        if ("android.permission.REQUEST_INSTALL_PACKAGES" in app.requestedPermissions) {
-            add(ScanReason(Code.INSTALLS_PACKAGES, "REQUEST_INSTALL_PACKAGES", INSTALL_PACKAGES_POINTS))
-        }
-        if ("android.permission.SYSTEM_ALERT_WINDOW" in app.requestedPermissions) {
-            add(ScanReason(Code.DRAWS_OVER_APPS, "SYSTEM_ALERT_WINDOW", OVERLAY_POINTS))
-        }
-        if (app.isDebuggable) {
-            add(ScanReason(Code.DEBUGGABLE, "android:debuggable=true", DEBUGGABLE_POINTS))
+        evaluation.findings.forEach { finding ->
+            add(
+                ScanReason(
+                    code = Code.HEURISTIC,
+                    detail = finding.title,
+                    points = finding.points,
+                    ruleId = finding.ruleId,
+                    evidence = finding.evidence,
+                    rulePoints = finding.rulePoints.takeIf { finding.capped }
+                )
+            )
         }
     }
 }

@@ -10,9 +10,14 @@ import com.blackshield.core.data.repository.AllowListRepository
 import com.blackshield.core.data.repository.ImportResult
 import com.blackshield.core.data.repository.ScanResultRepository
 import com.blackshield.core.data.repository.SignatureRepository
+import com.blackshield.core.scanner.analysis.ApkAnalyzer
+import com.blackshield.core.scanner.analysis.AppComponent
 import com.blackshield.core.scanner.hash.FileHasher
 import com.blackshield.core.scanner.hash.HashAlgorithm
 import com.blackshield.core.scanner.hash.HashResult
+import com.blackshield.core.scanner.risk.RiskRulesSource
+import com.blackshield.core.scanner.risk.TestProfiles
+import com.blackshield.core.scanner.risk.TestProfiles.accessibilityService
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -40,6 +45,7 @@ class InstalledAppScannerTest {
     private val results = FakeScanResultRepository()
     private val allowList = FakeAllowListRepository()
     private val hasher = FakeHasher()
+    private val analyzer = FakeAnalyzer()
     private val clock = Clock.fixed(Instant.ofEpochMilli(1_700_000_000_000), ZoneOffset.UTC)
 
     @Test
@@ -57,6 +63,7 @@ class InstalledAppScannerTest {
                 )
             )
         hasher.digests["/evil/base.apk" to HashAlgorithm.SHA256] = MALWARE_SHA256
+        analyzer.components["com.flashlight"] = listOf(accessibilityService("com.flashlight.Watcher"))
 
         val progress = scanner(apps).scan().toList()
 
@@ -208,6 +215,8 @@ class InstalledAppScannerTest {
         signatures = signatures,
         results = results,
         allowList = allowList,
+        analyzer = analyzer,
+        assessor = RiskAssessor(RiskRulesSource { TestProfiles.SHIPPED_RULES }, clock),
         dispatcher = StandardTestDispatcher(testScheduler),
         parallelism = parallelism,
         clock = clock
@@ -237,6 +246,23 @@ class InstalledAppScannerTest {
 
     private class FakeAppSource(private val apps: List<InstalledApp>) : InstalledAppSource {
         override suspend fun installedApps() = apps
+    }
+
+    /** Profiles straight from [InstalledApp], plus per-package components set by a test. */
+    private class FakeAnalyzer : ApkAnalyzer {
+        val components = java.util.concurrent.ConcurrentHashMap<String, List<AppComponent>>()
+
+        override fun startSession() = ApkAnalyzer.Session { app ->
+            TestProfiles.profile(
+                packageName = app.packageName,
+                installer = app.installerPackage,
+                system = app.isSystemApp,
+                debuggable = app.isDebuggable,
+                permissions = app.requestedPermissions,
+                components =
+                    listOf(TestProfiles.activity("${app.packageName}.Main")) + components[app.packageName].orEmpty()
+            )
+        }
     }
 
     /** Returns configured digests (default: a digest derived from the path), tracks concurrency. */
