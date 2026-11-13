@@ -129,3 +129,34 @@ What keeps the UI responsive:
 
 **Still to do:** repeat these measurements on a physical mid-range arm64 phone, and add a Macrobenchmark for frame
 timing once a `:benchmark` module exists.
+
+## YARA
+
+Measured 2026-11-14 on the x86_64 emulator (API 37). Reproduce with `./gradlew :core:scanner:connectedNativeTest`
+(the `[ perf ]` line) and `./gradlew :core:scanner:connectedDebugAndroidTest` (logcat tag `YaraOnDeviceTest`).
+
+**Binary size** of the stripped `libblackshield_scanner.so` (release), before and after adding libyara with the `dex`
+and `math` modules:
+
+| ABI | Before | After | Growth |
+| --- | --- | --- | --- |
+| arm64-v8a | 87,120 B | 313,504 B | +226 KB |
+| armeabi-v7a | 51,220 B | 224,540 B | +173 KB |
+| x86_64 | 83,080 B | 335,848 B | +253 KB |
+
+Kept down by compiling only two of libyara's modules, `-ffunction-sections`/`--gc-sections`, hidden visibility and
+`--exclude-libs,ALL`. In a per-ABI download from Play, users get one row, about +0.1 MB compressed.
+
+**Scan time** with the bundled ruleset:
+
+| Input | Time |
+| --- | --- |
+| 32 MiB buffer (native test) | 149 ms |
+| 50 MiB APK: 17 MiB of DEX in 8 entries plus 45 MiB of stored assets | 487 ms |
+| Largest APK on the device: Google app, 353 MiB with 110 MiB of DEX | 3.0–5.0 s |
+| Real-time scan of a newly installed test app (hash, analysis, YARA, verdict) | 535 ms |
+
+Each libyara call has a 10 s timeout. An expired timeout is reported as an incomplete analysis rather than a clean
+result. The acceptance target (a typical 50 MB APK in a few seconds) is met with a wide margin.
+
+**Still to do:** measure on a physical mid-range arm64 phone.

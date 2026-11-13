@@ -12,6 +12,7 @@ import com.blackshield.core.scanner.di.ScanParallelism
 import com.blackshield.core.scanner.hash.FileHasher
 import com.blackshield.core.scanner.hash.HashAlgorithm
 import com.blackshield.core.scanner.hash.HashResult
+import com.blackshield.core.scanner.yara.ApkPatternScanner
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -75,6 +76,7 @@ constructor(
     private val allowList: AllowListRepository,
     private val analyzer: ApkAnalyzer,
     private val assessor: RiskAssessor,
+    private val patterns: ApkPatternScanner,
     @param:ScanDispatcher private val dispatcher: CoroutineDispatcher,
     @param:ScanParallelism private val parallelism: Int,
     private val clock: Clock
@@ -154,7 +156,17 @@ constructor(
             digestsByPath.flatMap { (path, digests) ->
                 digests.values.mapNotNull { digest -> signatureByHash[digest]?.let { SignatureMatch(path, it) } }
             }
-        val assessment = assessor.assess(analysis.analyze(app), matches, failures, allowListed)
+        val profile = analysis.analyze(app)
+        // YARA is skipped where its result cannot change the verdict: system apps are exempt from
+        // heuristics, trusted apps skip them, and a known-malware match is already conclusive.
+        val withPatterns =
+            if (app.isSystemApp || allowListed || matches.isNotEmpty()) {
+                profile
+            } else {
+                val found = patterns.scan(app.apkPaths)
+                profile.copy(yaraMatches = found.matches, analysisGaps = profile.analysisGaps + found.problems)
+            }
+        val assessment = assessor.assess(withPatterns, matches, failures, allowListed)
         val baseApk = app.apkPaths.first()
         return ScanResult(
             packageName = app.packageName,

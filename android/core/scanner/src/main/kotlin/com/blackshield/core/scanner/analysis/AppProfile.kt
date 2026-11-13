@@ -2,6 +2,7 @@ package com.blackshield.core.scanner.analysis
 
 import com.blackshield.core.scanner.analysis.manifest.ComponentKind
 import com.blackshield.core.scanner.analysis.manifest.IntentFilterSpec
+import com.blackshield.core.scanner.yara.YaraMatch
 
 /** Whether the app shows up in the app drawer. */
 enum class LauncherState {
@@ -75,6 +76,8 @@ data class AppProfile(
     val accessibilityServiceEnabled: Boolean = false,
     /** It is an active device administrator. */
     val deviceAdminActive: Boolean = false,
+    /** YARA rules that matched the APK files or the DEX code inside them. */
+    val yaraMatches: List<YaraMatch> = emptyList(),
     /** What could not be read (e.g. an unparseable manifest), so missing data is never silent. */
     val analysisGaps: List<String> = emptyList(),
     /**

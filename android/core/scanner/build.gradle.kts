@@ -1,3 +1,4 @@
+import com.blackshield.buildlogic.CopyApkTask
 import com.blackshield.buildlogic.NativeGTestTask
 
 plugins {
@@ -5,11 +6,29 @@ plugins {
     alias(libs.plugins.blackshield.hilt)
 }
 
+/**
+ * Public keys trusted for YARA rule updates (`GET /v1/rules`), as `keyId:base64(SPKI)` entries
+ * separated by commas; `blackshield-signatures rules-keygen` prints one. From the Gradle property
+ * `blackshield.yaraRulesPublicKeys` or the `BLACKSHIELD_YARA_RULES_PUBLIC_KEYS` environment
+ * variable. Empty (the default) means no update is accepted: only the bundled rules are used.
+ * Public keys are not secret; the signing key never leaves the publishing machine.
+ */
+val yaraRulesPublicKeys: String =
+    providers
+        .gradleProperty("blackshield.yaraRulesPublicKeys")
+        .orElse(providers.environmentVariable("BLACKSHIELD_YARA_RULES_PUBLIC_KEYS"))
+        .getOrElse("")
+
 android {
     namespace = "com.blackshield.core.scanner"
     ndkVersion = libs.versions.ndk.get()
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
+        buildConfigField("String", "YARA_RULES_PUBLIC_KEYS", "\"" + yaraRulesPublicKeys.replace("\"", "") + "\"")
         consumerProguardFiles("consumer-rules.pro")
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -59,4 +78,16 @@ tasks.register<NativeGTestTask>("connectedNativeTest") {
     abi.set(providers.gradleProperty("nativeTestAbi").orElse("x86_64"))
     minSdk.set(libs.versions.minSdk.map(String::toInt))
     gtestFilter.set(providers.gradleProperty("gtestFilter").orElse("*"))
+}
+
+// A real APK with YARA test markers in its DEX code, for the instrumented YARA tests.
+val yaraTestApkAsset =
+    tasks.register<CopyApkTask>("yaraTestApkAsset") {
+        dependsOn(":testing:yara-test-apk:assembleDebug")
+        apkDirectory.set(rootProject.layout.projectDirectory.dir("testing/yara-test-apk/build/outputs/apk/debug"))
+        fileName.set("yara-test.apk")
+        outputDirectory.set(layout.buildDirectory.dir("yara/androidTestAssets"))
+    }
+androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
+    variant.androidTest?.sources?.assets?.addGeneratedSourceDirectory(yaraTestApkAsset, CopyApkTask::outputDirectory)
 }

@@ -1,6 +1,7 @@
 package com.blackshield.core.scanner.risk
 
 import com.blackshield.core.scanner.analysis.LauncherState
+import com.blackshield.core.scanner.yara.YaraSeverity
 
 /** Where an app came from, as judged with the rules' list of trusted installers. */
 enum class InstallSource {
@@ -101,6 +102,9 @@ sealed interface Condition {
     data class NativeLibraryMatches(val patterns: List<String>) : Condition
 
     data class ObfuscatedComponents(val minComponents: Int, val minShare: Double) : Condition
+
+    /** A YARA rule of one of these severities matched the app's code or files. */
+    data class PatternMatch(val severities: Set<YaraSeverity>) : Condition
 
     data object AccessibilityEnabled : Condition
 

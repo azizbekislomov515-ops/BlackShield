@@ -1,0 +1,5 @@
+{
+  "comment": "Signed by backend app/rules/signing.py (throwaway key, regenerate freely); checks the Kotlin verifier accepts it.",
+  "public_key": "py1:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEsL8Dxn9XYKeTduu9khz1hYgJnT4xRPnMdhQOyCMXvwqBMr4q2C69u5crdlJygSotsMlblep8dWBP7HIFHtxxeQ==",
+  "bundle": "{\"version\": 42, \"sha256\": \"8df6d83e0f5f104380b1f2f7bcf71299cb3b5d689acba3af7ec8cdd29f6f50d9\", \"key_id\": \"py1\", \"signature\": \"MEUCIC0JVjFzjrY8az95TdYK52pMnsTfDpbvwQXLD20oOnnkAiEA2uTjgJFPBosCUc+u8lurqjTpTQAdJ5hXsvJHFRrsfkA=\", \"rules\": \"rule interop_é { meta: severity = \\\"low\\\" description = \\\"café ✓\\\" condition: true }\\n\", \"published_at\": \"2026-11-14T00:00:00+00:00\"}"
+}

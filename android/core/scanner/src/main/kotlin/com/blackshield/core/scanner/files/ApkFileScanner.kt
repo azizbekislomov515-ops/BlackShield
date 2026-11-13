@@ -16,6 +16,7 @@ import com.blackshield.core.scanner.di.ScanDispatcher
 import com.blackshield.core.scanner.hash.FileHasher
 import com.blackshield.core.scanner.hash.HashAlgorithm
 import com.blackshield.core.scanner.hash.HashResult
+import com.blackshield.core.scanner.yara.ApkPatternScanner
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
@@ -77,6 +78,7 @@ constructor(
     private val allowList: AllowListRepository,
     private val analyzer: ApkAnalyzer,
     private val assessor: RiskAssessor,
+    private val patterns: ApkPatternScanner,
     @param:ScanDispatcher private val dispatcher: CoroutineDispatcher,
     private val clock: Clock
 ) {
@@ -103,8 +105,16 @@ constructor(
         val matches = signatures.findMatches(digests.values).values.map { SignatureMatch(candidate.displayName, it) }
         val profile = analyzer.analyzeArchive(path)
         if (profile == null) gaps += "not a valid APK, only its hash was checked"
-        val subject = (profile ?: placeholderProfile(candidate)).let { it.copy(analysisGaps = it.analysisGaps + gaps) }
         val trusted = profile != null && profile.packageName in allowList.allowedPackages()
+        // Pattern matching works on any file, parseable APK or not.
+        val found = if (trusted || matches.isNotEmpty()) null else patterns.scan(listOf(path))
+        val subject =
+            (profile ?: placeholderProfile(candidate)).let {
+                it.copy(
+                    yaraMatches = found?.matches.orEmpty(),
+                    analysisGaps = it.analysisGaps + gaps + found?.problems.orEmpty()
+                )
+            }
         val assessment = assessor.assess(subject, matches, failures, allowListed = trusted)
         return FileScanResult(
             candidate = candidate,

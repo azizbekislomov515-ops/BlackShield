@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1...4.1)
 
-project(blackshield_scanner LANGUAGES CXX)
+project(blackshield_scanner LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,6 +11,9 @@ option(BLACKSHIELD_BUILD_TESTS "Build the GoogleTest suite (run on a device with
 
 set(BLACKSHIELD_WARNINGS -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Werror)
 
+# --- libyara, pinned and built from source (see cmake/libyara.cmake) ---
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/libyara.cmake)
+
 # --- Scan primitives: pure C++17 + POSIX, no JNI. Shared by the JNI library and the tests. ---
 add_library(blackshield_scanner_core STATIC
     hash/block_hasher.cpp
@@ -20,8 +23,10 @@ add_library(blackshield_scanner_core STATIC
     hash/sha1.cpp
     hash/sha256.cpp
     scanner_engine.cpp
+    yara/yara_scanner.cpp
 )
 target_include_directories(blackshield_scanner_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(blackshield_scanner_core PUBLIC yara)
 # 64-bit off_t on 32-bit ABIs so files over 2 GiB hash correctly (bionic supports it from API 24).
 target_compile_definitions(blackshield_scanner_core PUBLIC _FILE_OFFSET_BITS=64)
 target_compile_options(blackshield_scanner_core PRIVATE
@@ -35,6 +40,8 @@ target_compile_options(blackshield_scanner_core PRIVATE
 add_library(blackshield_scanner SHARED
     hash_jni.cpp
     jni_bridge.cpp
+    jni_util.cpp
+    yara_jni.cpp
 )
 target_link_libraries(blackshield_scanner PRIVATE blackshield_scanner_core)
 target_compile_options(blackshield_scanner PRIVATE ${BLACKSHIELD_WARNINGS} -fvisibility=hidden)

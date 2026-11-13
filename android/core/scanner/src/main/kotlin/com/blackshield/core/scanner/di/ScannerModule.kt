@@ -1,6 +1,8 @@
 package com.blackshield.core.scanner.di
 
+import android.content.Context
 import android.os.Process
+import com.blackshield.core.scanner.BuildConfig
 import com.blackshield.core.scanner.NativeScannerEngine
 import com.blackshield.core.scanner.ScannerEngine
 import com.blackshield.core.scanner.analysis.ApkAnalyzer
@@ -11,11 +13,19 @@ import com.blackshield.core.scanner.hash.FileHasher
 import com.blackshield.core.scanner.hash.NativeHasher
 import com.blackshield.core.scanner.risk.BundledRiskRulesSource
 import com.blackshield.core.scanner.risk.RiskRulesSource
+import com.blackshield.core.scanner.yara.ApkPatternScanner
+import com.blackshield.core.scanner.yara.RulesetVerifier
+import com.blackshield.core.scanner.yara.YaraApkScanner
+import com.blackshield.core.scanner.yara.YaraRules
+import com.blackshield.core.scanner.yara.YaraRulesInstaller
+import com.blackshield.core.scanner.yara.YaraScanner
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
@@ -49,6 +59,12 @@ internal abstract class ScannerModule {
     @Binds
     abstract fun bindRiskRulesSource(impl: BundledRiskRulesSource): RiskRulesSource
 
+    @Binds
+    abstract fun bindApkPatternScanner(impl: YaraApkScanner): ApkPatternScanner
+
+    @Binds
+    abstract fun bindYaraRulesInstaller(impl: YaraRules): YaraRulesInstaller
+
     companion object {
         /** Hashing is CPU-bound; leave cores free for the UI thread and the rest of the system. */
         private val PARALLELISM = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
@@ -68,6 +84,16 @@ internal abstract class ScannerModule {
             PARALLELISM,
             BackgroundThreadFactory("blackshield-scan")
         ).asCoroutineDispatcher()
+
+        /** Bundled rules from assets, signed updates in no-backup storage (never restored onto another device). */
+        @Provides
+        @Singleton
+        fun provideYaraRules(@ApplicationContext context: Context): YaraRules = YaraRules(
+            directory = File(context.noBackupFilesDir, "yara"),
+            bundledSource = { context.assets.open("yara/bundled.yar").bufferedReader().use { it.readText() } },
+            verifier = RulesetVerifier(RulesetVerifier.parseKeys(BuildConfig.YARA_RULES_PUBLIC_KEYS)),
+            compiler = { source -> YaraScanner.compile(source) }
+        )
 
         /** Scanning hashes on the background-priority pool, never on the shared IO pool. */
         @Provides

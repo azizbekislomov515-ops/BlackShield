@@ -1,0 +1,9 @@
+// BlackShield's libyara module list. It replaces libyara/modules/module_list (modules.c includes
+// <modules/module_list>, and this directory comes first on the include path).
+//
+// Only what Android malware rules use is built: `dex` (classes, methods, strings of DEX files) and
+// `math` (entropy, to spot packed or encrypted payloads). Everything else (pe, elf, macho, dotnet,
+// hash, magic, cuckoo, console, time, string, tests) is left out to keep the library small; rules
+// that import them fail to compile with "unknown module", and are rejected.
+MODULE(dex)
+MODULE(math)

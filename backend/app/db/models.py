@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Index, String, false
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Index, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -56,4 +56,25 @@ class SignatureVersion(Base):
     count: Mapped[int] = mapped_column(BigInteger)
 
 
-__all__ = ["ALGORITHMS", "SEVERITIES", "Base", "Signature", "SignatureVersion"]
+class YaraRuleset(Base):
+    """One published, signed YARA ruleset. Rows are never changed; a new version replaces the old.
+
+        ``signature`` is ECDSA P-256 over ``blackshield-yara-rules
+    <version>
+    <sha256>`` (see
+        app/rules/signing.py), made at publish time with a key the API server never holds.
+    """
+
+    __tablename__ = "yara_rulesets"
+
+    version: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    sha256: Mapped[str] = mapped_column(String(64))
+    key_id: Mapped[str] = mapped_column(String(64))
+    signature: Mapped[str] = mapped_column(Text)
+    rules: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+
+    __table_args__ = (CheckConstraint("version > 0", name="version_positive"),)
+
+
+__all__ = ["ALGORITHMS", "SEVERITIES", "Base", "Signature", "SignatureVersion", "YaraRuleset"]

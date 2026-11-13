@@ -10,6 +10,7 @@ android {
 dependencies {
     implementation(projects.core.data)
     implementation(projects.core.network)
+    implementation(projects.core.scanner)
 
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)

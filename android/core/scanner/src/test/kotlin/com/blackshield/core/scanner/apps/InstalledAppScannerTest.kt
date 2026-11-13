@@ -19,6 +19,9 @@ import com.blackshield.core.scanner.hash.HashResult
 import com.blackshield.core.scanner.risk.RiskRulesSource
 import com.blackshield.core.scanner.risk.TestProfiles
 import com.blackshield.core.scanner.risk.TestProfiles.accessibilityService
+import com.blackshield.core.scanner.yara.ApkPatternScanner
+import com.blackshield.core.scanner.yara.PatternScanResult
+import com.blackshield.core.scanner.yara.YaraMatch
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -47,6 +50,7 @@ class InstalledAppScannerTest {
     private val allowList = FakeAllowListRepository()
     private val hasher = FakeHasher()
     private val analyzer = FakeAnalyzer()
+    private val patterns = FakePatternScanner()
     private val clock = Clock.fixed(Instant.ofEpochMilli(1_700_000_000_000), ZoneOffset.UTC)
 
     @Test
@@ -222,12 +226,72 @@ class InstalledAppScannerTest {
     }
 
     @Test
+    fun `a critical YARA match makes an app from Play malicious and is explained`() = runTest {
+        patterns.matchesByPath["/tool/base.apk"] =
+            listOf(
+                YaraMatch(
+                    "BlackShield_Test_File",
+                    meta = mapOf("severity" to "critical", "description" to "test file"),
+                    location = "base.apk!classes.dex"
+                )
+            )
+        val result = scanApps(this, listOf(app("com.tool", base = "/tool/base.apk"))).single()
+
+        assertEquals(Verdict.MALICIOUS, result.verdict)
+        val reason = result.reasons.single { it.ruleId == "yara_critical" }
+        assertEquals(100, reason.points)
+        assertEquals(
+            listOf("YARA rule BlackShield_Test_File matched in base.apk!classes.dex: test file"),
+            reason.evidence
+        )
+        assertEquals(listOf(listOf("/tool/base.apk")), patterns.calls)
+    }
+
+    @Test
+    fun `YARA is skipped for trusted apps and known malware, and its problems are reported`() = runTest {
+        signatures.add(MALWARE_SHA256, SignatureAlgorithm.SHA256, Severity.CRITICAL)
+        hasher.digests["/evil/base.apk" to HashAlgorithm.SHA256] = MALWARE_SHA256
+        allowList.allowed += "com.trusted"
+        patterns.problems = listOf("YARA scan of base.apk stopped after 10000 ms")
+        val results =
+            scanApps(
+                this,
+                listOf(
+                    app("com.evil", base = "/evil/base.apk"),
+                    app("com.trusted", base = "/trusted/base.apk"),
+                    app("com.plain", base = "/plain/base.apk", splits = listOf("/plain/split.apk"))
+                )
+            ).associateBy { it.packageName }
+
+        assertEquals(listOf(listOf("/plain/base.apk", "/plain/split.apk")), patterns.calls)
+        assertTrue(
+            results.getValue("com.plain").reasons.any {
+                it.code == ScanReason.Code.ANALYSIS_INCOMPLETE && it.detail.contains("stopped after")
+            }
+        )
+    }
+
+    @Test
     fun `scanPackage of an app that is gone returns null and saves nothing`() = runTest {
         assertNull(scanner(emptyList()).scanPackage("com.gone"))
         assertTrue(results.saved.isEmpty())
     }
 
     // --- helpers -------------------------------------------------------------------------
+
+    private suspend fun scanApps(scope: TestScope, apps: List<InstalledApp>): List<ScanResult> =
+        scope.scanner(apps).scan().toList().filterIsInstance<ScanProgress.AppScanned>().map { it.result }
+
+    private class FakePatternScanner : ApkPatternScanner {
+        val matchesByPath = mutableMapOf<String, List<YaraMatch>>()
+        var problems: List<String> = emptyList()
+        val calls = mutableListOf<List<String>>()
+
+        override fun scan(apkPaths: List<String>): PatternScanResult = synchronized(this) {
+            calls += apkPaths
+            PatternScanResult(apkPaths.flatMap { matchesByPath[it].orEmpty() }, problems, rulesVersion = 1)
+        }
+    }
 
     private fun TestScope.scanner(apps: List<InstalledApp>, parallelism: Int = 4) = InstalledAppScanner(
         appSource = FakeAppSource(apps),
@@ -237,6 +301,7 @@ class InstalledAppScannerTest {
         allowList = allowList,
         analyzer = analyzer,
         assessor = RiskAssessor(RiskRulesSource { TestProfiles.SHIPPED_RULES }, clock),
+        patterns = patterns,
         dispatcher = StandardTestDispatcher(testScheduler),
         parallelism = parallelism,
         clock = clock

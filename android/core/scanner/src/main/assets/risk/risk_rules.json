@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rulesVersion": "2026-11-13.1",
+  "rulesVersion": "2026-11-13.2",
   "thresholds": { "suspicious": 40, "malicious": 75 },
   "trustedInstallers": {
     "com.android.vending": "Google Play",
@@ -50,6 +50,30 @@
     ]
   },
   "rules": [
+    {
+      "id": "yara_critical",
+      "title": "Contains code or data matching a critical malware pattern",
+      "points": 100,
+      "when": { "yaraMatch": "CRITICAL" }
+    },
+    {
+      "id": "yara_high",
+      "title": "Contains code matching a high-risk malware pattern",
+      "points": 50,
+      "when": { "yaraMatch": "HIGH" }
+    },
+    {
+      "id": "yara_medium",
+      "title": "Contains code matching a suspicious pattern",
+      "points": 25,
+      "when": { "yaraMatch": "MEDIUM" }
+    },
+    {
+      "id": "yara_low",
+      "title": "Contains code matching a low-risk pattern",
+      "points": 10,
+      "when": { "yaraMatch": "LOW" }
+    },
     {
       "id": "installed_from_play",
       "title": "Installed from Google Play, which reviews apps and scans them with Play Protect",

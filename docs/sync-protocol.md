@@ -266,3 +266,47 @@ check) would be the next step if per-device identity is needed.
   floor: delete tombstones older than version F and answer `since < F` with 409 (full sync).
 - Tests run on SQLite by default and on PostgreSQL when `TEST_DATABASE_URL` is set (CI does both). The writer
   lock, server-side cursor and snapshot isolation are verified only on PostgreSQL.
+
+## 7. YARA rules
+
+Signed YARA rulesets travel separately from signatures. They are small text files, replaced as a whole.
+
+### Data model and publishing
+
+`yara_rulesets` (migration 0002) holds one row per published version: `version` (primary key, increasing),
+`sha256` of the UTF-8 rule text, `key_id`, `signature`, `rules`, `created_at`. Rows are never changed.
+
+```
+blackshield-signatures rules-keygen --id k1 --output rules-key.pem     # once; prints the app's key entry
+blackshield-signatures rules-publish rules.yar --key-file rules-key.pem [--key-id k1] [--min-version 2]
+blackshield-signatures rules-status
+```
+
+- `rules-publish` refuses rules that every device would reject: empty or over 1 MiB, NUL bytes, `include`, or
+  imports other than `dex` and `math`.
+- The signature is ECDSA P-256 with SHA-256 (DER, base64) over `blackshield-yara-rules\n<version>\n<sha256>`.
+- The private key stays on the publishing machine (`RULES_SIGNING_KEY_FILE`); the API server only serves stored rows.
+- Use `--min-version` for the first publish, so it is above the version bundled in the app (the `// blackshield-yara-rules
+  version: N` header of `bundled.yar`). Devices ignore anything that is not newer.
+
+### `GET /v1/rules`
+
+Returns `{"version", "sha256", "key_id", "signature", "rules", "published_at"}` for the latest ruleset, with
+`ETag: "rules-<version>"` and `Cache-Control: private, no-cache`. A request with `If-None-Match` naming that ETag gets
+304; nothing published gets 404. Gzip when accepted. API key required, like every `/v1` route.
+
+### Device
+
+`YaraRulesSyncEngine` runs in `SignatureSyncWorker` after the signature sync. The two are independent: either may fail
+without blocking the other, and the worker retries while any failure is retryable.
+
+1. Send `If-None-Match: "rules-<active version>"`. A 304 or 404 means nothing to do.
+2. Read the body, refusing anything over 4 MiB, and pass it to `YaraRules.install`.
+3. `install` checks that `key_id` is a trusted key (`blackshield.yaraRulesPublicKeys`), the signature verifies, the
+   rules hash to `sha256`, the version is newer than the active one, and the rules compile.
+4. Then the JSON is written atomically and becomes the active ruleset for the next scan.
+5. A refused ruleset (`Refused`) is logged and not retried. A stored file is verified again on every load: if it was
+   modified it is deleted and the bundled rules are used until the next sync installs a valid copy.
+
+Tests: `tests/test_rules.py` (backend), `YaraRulesSyncEngineTest`, `RulesetVerifierTest` (including a ruleset signed by
+the Python backend) and `YaraRulesTest` (JVM), `YaraOnDeviceTest` (instrumented, real engine).

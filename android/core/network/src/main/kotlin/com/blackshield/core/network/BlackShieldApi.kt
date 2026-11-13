@@ -9,6 +9,7 @@ import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
@@ -42,6 +43,13 @@ interface BlackShieldApi {
     @Headers("Accept-Encoding: gzip")
     @GET("v1/signatures/full")
     suspend fun signatureSnapshot(): Response<ResponseBody>
+
+    /**
+     * The latest signed YARA ruleset as raw JSON (the caller verifies its signature before use).
+     * 304 when [ifNoneMatch] (`"rules-<version>"`) names it, 404 when nothing is published yet.
+     */
+    @GET("v1/rules")
+    suspend fun yaraRules(@Header("If-None-Match") ifNoneMatch: String?): Response<ResponseBody>
 
     /** Verdicts for up to 100 SHA-256 digests. Hashes only: never send file contents. */
     @POST("v1/reputation/lookup")

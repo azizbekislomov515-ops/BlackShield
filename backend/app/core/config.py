@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     delta_default_limit: int = Field(default=5_000, ge=1)
     delta_max_limit: int = Field(default=20_000, ge=1)
 
+    # --- YARA rules publishing (CLI only; the API server never needs the private key) ----------
+    # PEM file of the EC P-256 signing key, created with `blackshield-signatures rules-keygen`.
+    # Keep it offline (a secrets manager or the release machine), never in the repository.
+    rules_signing_key_file: str | None = None
+    # Must match the key id the app trusts (Gradle property blackshield.yaraRulesPublicKeys).
+    rules_signing_key_id: str = "k1"
+
     # --- Ingestion -----------------------------------------------------------------------------
     malwarebazaar_api_key: SecretStr | None = None
     malwarebazaar_url: str = "https://mb-api.abuse.ch/api/v1/"

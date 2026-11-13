@@ -65,3 +65,19 @@ class Verdict(BaseModel):
 class LookupResponse(BaseModel):
     version: int = Field(description="Signature version the verdicts are based on.")
     results: list[Verdict] = Field(description="One entry per distinct hash, in request order.")
+
+
+class RulesetResponse(BaseModel):
+    """A signed YARA ruleset (docs/sync-protocol.md#yara-rules)."""
+
+    version: int = Field(description="Increases with every published ruleset.")
+    sha256: str = Field(description="SHA-256 (lower-case hex) of `rules` encoded as UTF-8.")
+    key_id: str = Field(description="Which trusted public key verifies `signature`.")
+    signature: str = Field(
+        description="Base64 DER ECDSA P-256/SHA-256 signature over "
+        "`blackshield-yara-rules\n<version>\n<sha256>`."
+    )
+    rules: str = Field(
+        description="YARA rule source; may import only the `dex` and `math` modules."
+    )
+    published_at: datetime

@@ -43,7 +43,8 @@ Android app                                              backend
 
 ### 3.3 Native scan engine (`:core:scanner`)
 
-- C++17, built with CMake through the NDK for `arm64-v8a`, `armeabi-v7a` and `x86_64`. No dependencies beyond the NDK.
+- C++17, built with CMake through the NDK for `arm64-v8a`, `armeabi-v7a` and `x86_64`. One third-party dependency:
+  libyara (see 3.9 and [third-party.md](third-party.md)).
 - `blackshield_scanner_core` (static, no JNI): the scan primitives. `libblackshield_scanner.so` adds the JNI layer.
 - **Hashing:** `HashEngine` streams a file path or file descriptor through MD5, SHA-1 or SHA-256 (own implementations)
   in 64 KiB chunks, so memory use does not depend on file size.
@@ -62,7 +63,7 @@ Android app                                              backend
     `HashResult.Cancelled`.
 - Tests: GoogleTest on the device (`connectedNativeTest`), instrumented tests and a throughput benchmark. Measured
   figures are in [performance.md](performance.md).
-- Signature format, update mechanism and the scan pipeline built on these primitives: _TBD_.
+- Signature format and sync: [sync-protocol.md](sync-protocol.md). Pattern matching: 3.9.
 
 ### 3.4 Installed-app scan (`InstalledAppScanner`, `:core:scanner`)
 
@@ -172,6 +173,47 @@ Android app                                              backend
   - Folder watching covers the top level of a picked folder only.
   - Some vendor task killers can stop any service; the troubleshooting screen guides the user.
 
+### 3.9 YARA pattern matching (`:core:scanner`)
+
+- **libyara 4.5.8** (BSD-3-Clause), fetched by CMake `FetchContent` from the release tarball and pinned by SHA-256
+  (`src/main/cpp/cmake/libyara.cmake`). libyara has no CMake build, so that file lists its sources and the flags its
+  autotools build would use. Only the `dex` and `math` modules are compiled in (`cmake/yara-modules/modules/module_list`
+  replaces upstream's list); process scanning is off. Offline builds pass `-DFETCHCONTENT_SOURCE_DIR_LIBYARA=<dir>`.
+  Cost: about +230 KB per ABI in the stripped `.so` ([performance.md](performance.md#yara)).
+- **C++ `YaraScanner`** (`src/main/cpp/yara/`):
+  - `Compile(source)` compiles once; identical sources share one compiled ruleset (weak cache keyed by SHA-256).
+    `include` is disabled: rules arrive as one signed file and must never read other files.
+  - The compiled scanner is immutable. Each scan creates its own libyara scanner, so scans run in parallel.
+  - `ScanFile`/`ScanMemory` take a timeout in milliseconds. libyara's public API only takes whole seconds, so the
+    nanosecond field is set directly. libyara checks it every 4 KiB of input and every 100 condition instructions.
+  - Results: rule, namespace, tags, metadata, capped at 256 matches. Every failure is a status code (ok, timeout,
+    compile error, file error, invalid argument, internal); nothing throws across JNI.
+- **JNI** (`yara_jni.cpp`): compiled rulesets are opaque handles in a registry, the same way as cancellation tokens.
+  Rule source goes in as UTF-8 bytes. Matches come back as a flat `String[]`, so no app classes are looked up from
+  native code. Strings from rules are decoded leniently (invalid UTF-8 becomes U+FFFD): `NewStringUTF` would abort
+  the VM under CheckJNI.
+- **Kotlin** (`yara/`):
+  - `YaraScanner.scan(file)` scans the file as it is on disk.
+  - For APKs, it also streams each `*.dex` entry out of the ZIP into one reused direct `ByteBuffer`
+    (`DexEntries`), because DEX code is stored compressed. Nothing is extracted to disk.
+  - Sizes come from the central directory and are enforced while inflating, which stops zip bombs. Limits: 64 MiB
+    per DEX, 64 DEX files, 10 s per libyara call.
+  - Handles are reference-counted, so replacing the rules never frees them under a running scan.
+- **Rules lifecycle** (`YaraRules`):
+  - The bundled ruleset (`assets/yara/bundled.yar`, versioned by its header) or a newer signed update from
+    `GET /v1/rules`, stored in `noBackupFilesDir/yara/ruleset.json`.
+  - Updates are ECDSA P-256 signed offline. `RulesetVerifier` checks key id, signature, digest and version on
+    arrival and again on every load, so a file edited on disk is rejected, deleted, and the bundled rules are used.
+  - An update must be newer than the active and bundled rules (no rollback) and must compile before it replaces them.
+  - Trusted public keys come from the Gradle property `blackshield.yaraRulesPublicKeys`. With none configured, no
+    update is accepted.
+  - `YaraRulesSyncEngine` (`:core:sync`) runs after the signature sync in the same worker, with `If-None-Match`. A new
+    ruleset applies to the next scan, with no app update or restart.
+- **Scoring:** `InstalledAppScanner` and `ApkFileScanner` add matches to `AppProfile.yaraMatches`. The risk rules
+  `yara_critical` (+100), `yara_high` (+50), `yara_medium` (+25) and `yara_low` (+10) score them by the rule's
+  `severity` meta. YARA is skipped for system apps (exempt), apps the user trusts, and known-malware matches. Timeouts
+  and unreadable entries are reported as `ANALYSIS_INCOMPLETE`.
+
 ## 4. Backend
 
 - FastAPI application factory (`app/main.py`), routers in `app/api/`.
@@ -208,3 +250,7 @@ Android app                                              backend
 | 2026-11-13 | Download first, then one transaction (delta pages in memory, snapshot to a file) | The write transaction never waits on the network, and a killed process can only roll back. |
 | 2026-11-13 | Sync version in DataStore, written after the Room commit | A crash in between leaves an older version; re-applying a delta is idempotent. |
 | 2026-11-13 | Strict payload validation (unknown enum fails the sync) | Silently dropped rows would make counts disagree and force a snapshot on every sync. |
+| 2026-11-14 | libyara via FetchContent (pinned tarball + SHA-256), own target list, `dex` + `math` only | No submodule to manage; upstream has no CMake build; unused modules (PE, ELF, .NET...) would add size for nothing. |
+| 2026-11-14 | YARA updates signed with ECDSA P-256, key offline, verified on every load | Ed25519 is not in the platform before API 33; the API server never holds the key, so a compromised server cannot push rules. |
+| 2026-11-14 | DEX streamed from the ZIP into memory, one entry at a time | DEX is stored compressed in most APKs; extracting would write user files to disk and cost I/O. |
+| 2026-11-14 | YARA matches scored as risk rules (critical +100) | One explanation model for every deduction; a critical match is malicious even from Play, while system and known-good apps stay exempt. |

@@ -76,6 +76,7 @@ Each condition is an object with exactly one key. Wherever a list of strings is 
 | `applicationClassIn`, `nativeLibraryMatches` | Application class in the list; a library file name matches a pattern (`*` wildcard, case-insensitive) |
 | `obfuscatedComponents`: `{minComponents, minShare}` | At least `minShare` of at least `minComponents` components have names R8 never produces for manifest classes (simple name of 1–2 characters, or all segments 1–2 characters) |
 | `accessibilityEnabled`, `deviceAdminActive`, `debuggable`: `true` | Runtime state or manifest flag. Use `not` to negate. |
+| `yaraMatch`: `LOW` / `MEDIUM` / `HIGH` / `CRITICAL` | A YARA rule with that `severity` meta matched the APK or its DEX code (a rule without a valid severity counts as `MEDIUM`). Evidence names the rule, where it matched and its `description`. |
 
 ## 3. Scoring
 
@@ -92,10 +93,11 @@ Each condition is an object with exactly one key. Wherever a list of strings is 
 - **Determinism.** The result depends only on the profile, the rules and the current time; evidence lists are sorted.
   Each finding carries its rule ID, plain-language title, points and evidence; the score equals the sum of the points.
 
-### Shipped rules (2026-11-13.1)
+### Shipped rules (2026-11-13.2)
 
 | Rule | Points | Signal |
 | --- | --- | --- |
+| `yara_critical` / `yara_high` / `yara_medium` / `yara_low` | +100 / +50 / +25 / +10 | A YARA rule of that severity matched (see architecture.md 3.9). Critical is malicious even from Google Play; high from an unknown source plus one capability is malicious. |
 | `installed_from_play` / `installed_from_known_store` | −20 / −10 | Reviewed source |
 | `unknown_source` | +15 | Not from a store |
 | `banking_trojan_capabilities` | +35 (capability) | SMS + accessibility service + overlay |

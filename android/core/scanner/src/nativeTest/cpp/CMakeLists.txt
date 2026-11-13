@@ -15,6 +15,7 @@ add_executable(blackshield_scanner_tests
     hash_engine_test.cpp
     hasher_test.cpp
     test_util.cpp
+    yara_scanner_test.cpp
 )
 target_link_libraries(blackshield_scanner_tests PRIVATE blackshield_scanner_core gtest gtest_main)
 target_compile_options(blackshield_scanner_tests PRIVATE ${BLACKSHIELD_WARNINGS})

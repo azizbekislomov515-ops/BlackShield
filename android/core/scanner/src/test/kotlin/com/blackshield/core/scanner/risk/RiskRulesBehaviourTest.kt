@@ -1,5 +1,6 @@
 package com.blackshield.core.scanner.risk
 
+import com.blackshield.core.data.model.Verdict
 import com.blackshield.core.scanner.analysis.AppProfile
 import com.blackshield.core.scanner.analysis.LauncherState
 import com.blackshield.core.scanner.risk.TestProfiles.BIND_DEVICE_ADMIN
@@ -19,6 +20,7 @@ import com.blackshield.core.scanner.risk.TestProfiles.deviceAdminReceiver
 import com.blackshield.core.scanner.risk.TestProfiles.profile
 import com.blackshield.core.scanner.risk.TestProfiles.service
 import com.blackshield.core.scanner.risk.TestProfiles.smsReceiver
+import com.blackshield.core.scanner.yara.YaraMatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -270,6 +272,55 @@ class RiskRulesBehaviourTest {
         assertQuiet("recently_sideloaded", today.copy(installerPackage = TestProfiles.PLAY))
     }
 
+    private fun yara(severity: String?, rule: String = "Rule_$severity") = YaraMatch(
+        rule = rule,
+        meta = listOfNotNull(severity?.let { "severity" to it }, "description" to "why it matters").toMap(),
+        location = "base.apk!classes.dex"
+    )
+
+    @Test
+    fun `yara matches score by severity`() {
+        val critical =
+            assertFires(
+                "yara_critical",
+                profile().copy(yaraMatches = listOf(yara("critical"))),
+                "YARA rule Rule_critical matched in base.apk!classes.dex: why it matters"
+            )
+        assertEquals(100, critical.points)
+        assertEquals(50, assertFires("yara_high", profile().copy(yaraMatches = listOf(yara("HIGH")))).points)
+        assertEquals(25, assertFires("yara_medium", profile().copy(yaraMatches = listOf(yara("medium")))).points)
+        assertEquals(10, assertFires("yara_low", profile().copy(yaraMatches = listOf(yara("low")))).points)
+        // No (or an unknown) severity counts as medium.
+        assertFires("yara_medium", profile().copy(yaraMatches = listOf(yara(null, rule = "Untagged"))), "Untagged")
+        assertFires("yara_medium", profile().copy(yaraMatches = listOf(yara("severe"))))
+        assertQuiet("yara_high", profile().copy(yaraMatches = listOf(yara("medium"))))
+        assertQuiet("yara_critical", profile())
+    }
+
+    @Test
+    fun `a critical yara match is malicious even from Google Play, but system and known-good apps are exempt`() {
+        val fromPlay = profile().copy(yaraMatches = listOf(yara("critical")))
+        assertEquals(Verdict.MALICIOUS, engine.evaluate(fromPlay, NOW).verdict)
+
+        val system = fromPlay.copy(isSystemApp = true)
+        assertEquals(Exemption.SYSTEM_APP, engine.evaluate(system, NOW).exemption)
+    }
+
+    @Test
+    fun `a high yara match from an unknown source with spying capabilities is malicious`() {
+        val evaluation =
+            engine.evaluate(
+                sideloaded.copy(
+                    yaraMatches = listOf(yara("high")),
+                    requestedPermissions = setOf(READ_SMS),
+                    components = listOf(smsReceiver("x.Sms"))
+                ),
+                NOW
+            )
+        assertEquals(Verdict.MALICIOUS, evaluation.verdict)
+        assertTrue(evaluation.findings.any { it.ruleId == "yara_high" })
+    }
+
     @Test
     fun `every shipped rule is covered by a trigger`() {
         val triggers =
@@ -295,7 +346,8 @@ class RiskRulesBehaviourTest {
                     signingCertificates = listOf(aospTestKeyCert())
                 ),
                 sideloaded.copy(launcher = LauncherState.HIDDEN),
-                sideloaded.copy(launcher = LauncherState.NONE_DECLARED)
+                sideloaded.copy(launcher = LauncherState.NONE_DECLARED),
+                sideloaded.copy(yaraMatches = listOf("critical", "high", "medium", "low").map(::yara))
             )
         val fired = triggers.flatMap { p -> engine.evaluate(p, NOW).findings.map { it.ruleId } }.toSet()
 

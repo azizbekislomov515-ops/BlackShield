@@ -1,6 +1,7 @@
 package com.blackshield.core.scanner.risk
 
 import com.blackshield.core.scanner.analysis.LauncherState
+import com.blackshield.core.scanner.yara.YaraSeverity
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -36,6 +37,7 @@ internal class ConditionParser(private val lists: Map<String, List<String>>) {
             "applicationClassIn" -> Condition.ApplicationClassIn(strings(arg, at))
             "nativeLibraryMatches" -> Condition.NativeLibraryMatches(strings(arg, at))
             "obfuscatedComponents" -> obfuscated(arg, at)
+            "yaraMatch" -> Condition.PatternMatch(enums<YaraSeverity>(arg, at))
             "accessibilityEnabled" -> flag(arg, at, Condition.AccessibilityEnabled)
             "deviceAdminActive" -> flag(arg, at, Condition.DeviceAdminActive)
             "debuggable" -> flag(arg, at, Condition.Debuggable)

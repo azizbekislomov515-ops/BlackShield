@@ -17,9 +17,12 @@
 #include <unordered_map>
 
 #include "hash/hash_engine.h"
+#include "jni_util.h"
 
 namespace {
 
+using blackshield::jni::ClearPendingException;
+using blackshield::jni::JavaStringToUtf8;
 using blackshield::hash::AlgorithmFromInt;
 using blackshield::hash::CancellationFlag;
 using blackshield::hash::HashEngine;
@@ -73,54 +76,6 @@ HashOutcome Invalid(int error_number = EINVAL) {
     outcome.status = HashStatus::kInvalidArgument;
     outcome.error_number = error_number;
     return outcome;
-}
-
-void ClearPendingException(JNIEnv* env) {
-    if (env->ExceptionCheck()) {
-        env->ExceptionClear();
-    }
-}
-
-/** Java strings are UTF-16; paths are UTF-8. (GetStringUTFChars yields *modified* UTF-8.) */
-bool JavaStringToUtf8(JNIEnv* env, jstring value, std::string* out) {
-    const jsize length = env->GetStringLength(value);
-    std::u16string utf16(static_cast<std::size_t>(length), u'\0');
-    env->GetStringRegion(value, 0, length, reinterpret_cast<jchar*>(utf16.data()));
-    if (env->ExceptionCheck()) {
-        env->ExceptionClear();
-        return false;
-    }
-
-    out->clear();
-    out->reserve(utf16.size());
-    for (std::size_t i = 0; i < utf16.size(); ++i) {
-        std::uint32_t cp = utf16[i];
-        if (cp >= 0xD800 && cp <= 0xDBFF) {
-            if (i + 1 >= utf16.size() || utf16[i + 1] < 0xDC00 || utf16[i + 1] > 0xDFFF) {
-                return false;  // Unpaired high surrogate.
-            }
-            cp = 0x10000 + ((cp - 0xD800) << 10) + (static_cast<std::uint32_t>(utf16[++i]) - 0xDC00);
-        } else if (cp >= 0xDC00 && cp <= 0xDFFF) {
-            return false;  // Unpaired low surrogate.
-        }
-
-        if (cp < 0x80) {
-            out->push_back(static_cast<char>(cp));
-        } else if (cp < 0x800) {
-            out->push_back(static_cast<char>(0xC0 | (cp >> 6)));
-            out->push_back(static_cast<char>(0x80 | (cp & 0x3F)));
-        } else if (cp < 0x10000) {
-            out->push_back(static_cast<char>(0xE0 | (cp >> 12)));
-            out->push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
-            out->push_back(static_cast<char>(0x80 | (cp & 0x3F)));
-        } else {
-            out->push_back(static_cast<char>(0xF0 | (cp >> 18)));
-            out->push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
-            out->push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
-            out->push_back(static_cast<char>(0x80 | (cp & 0x3F)));
-        }
-    }
-    return true;
 }
 
 /** Writes the outcome into `result` and returns the digest string (or null). */

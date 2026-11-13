@@ -239,6 +239,51 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "RulesetResponse": {
+        "description": "A signed YARA ruleset (docs/sync-protocol.md#yara-rules).",
+        "properties": {
+          "key_id": {
+            "description": "Which trusted public key verifies `signature`.",
+            "title": "Key Id",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "rules": {
+            "description": "YARA rule source; may import only the `dex` and `math` modules.",
+            "title": "Rules",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "SHA-256 (lower-case hex) of `rules` encoded as UTF-8.",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "signature": {
+            "description": "Base64 DER ECDSA P-256/SHA-256 signature over `blackshield-yara-rules\n<version>\n<sha256>`.",
+            "title": "Signature",
+            "type": "string"
+          },
+          "version": {
+            "description": "Increases with every published ruleset.",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "sha256",
+          "key_id",
+          "signature",
+          "rules",
+          "published_at"
+        ],
+        "title": "RulesetResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -489,6 +534,42 @@
         "summary": "Reputation Lookup",
         "tags": [
           "reputation"
+        ]
+      }
+    },
+    "/v1/rules": {
+      "get": {
+        "description": "The latest signed YARA ruleset.\n\nSend the ETag of the ruleset in use as `If-None-Match` (`\"rules-<version>\"`): an unchanged\nruleset costs a 304 with no body. Clients must verify `signature` with a trusted key and\ncheck that `rules` hashes to `sha256` before using the rules, and must ignore versions that\nare not newer than the ones they have. See docs/sync-protocol.md.",
+        "operationId": "latest_rules_v1_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "The client already has this version (`If-None-Match`)."
+          },
+          "404": {
+            "description": "No ruleset has been published yet."
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          },
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Latest Rules",
+        "tags": [
+          "rules"
         ]
       }
     },

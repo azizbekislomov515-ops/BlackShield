@@ -7,11 +7,15 @@
     blackshield-signatures status
     blackshield-signatures generate-api-key --id android-v1
     blackshield-signatures openapi [--output ../docs/openapi.json]
+    blackshield-signatures rules-keygen --id k1 --output rules-key.pem
+    blackshield-signatures rules-publish rules.yar [--key-file rules-key.pem] [--min-version 2]
+    blackshield-signatures rules-status
 
 Exit codes: 0 success, 1 failure, 2 partial success (some MalwareBazaar queries failed).
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import sys
@@ -33,6 +37,8 @@ from app.ingest.malwarebazaar import (
     ingest_malwarebazaar,
 )
 from app.ingest.scheduler import run_periodically, stop_on_signals
+from app.rules.signing import SigningKeyError, generate_key, load_private_key
+from app.rules.store import InvalidRuleset, latest_ruleset, publish_ruleset
 from app.signatures.normalize import InvalidRecord, Removal, normalize_hash
 from app.signatures.store import apply_changes, latest_version
 
@@ -72,6 +78,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     openapi = sub.add_parser("openapi", help="print the OpenAPI document")
     openapi.add_argument("--output", type=Path)
+
+    keygen = sub.add_parser("rules-keygen", help="create a YARA rules signing key")
+    keygen.add_argument("--id", dest="key_id", required=True, help="key id, e.g. k1")
+    keygen.add_argument("--output", type=Path, required=True, help="where to write the private key")
+
+    publish = sub.add_parser("rules-publish", help="sign and publish a YARA ruleset")
+    publish.add_argument("path", type=Path, help="the .yar file (UTF-8, self-contained)")
+    publish.add_argument("--key-file", type=Path, help="defaults to RULES_SIGNING_KEY_FILE")
+    publish.add_argument("--key-id", help="defaults to RULES_SIGNING_KEY_ID")
+    publish.add_argument(
+        "--min-version",
+        type=int,
+        default=1,
+        help="lowest version to publish as (start above the version bundled in the app)",
+    )
+
+    sub.add_parser("rules-status", help="print the latest published YARA ruleset version")
     return parser
 
 
@@ -90,6 +113,8 @@ def main(argv: Sequence[str] | None = None, *, engine: Engine | None = None) -> 
         return _generate_api_key(args.key_id)
     if args.command == "openapi":
         return _openapi(args.output)
+    if args.command == "rules-keygen":
+        return _rules_keygen(args.key_id, args.output)
 
     engine = engine or make_engine(settings.database_url)
     try:
@@ -103,6 +128,10 @@ def main(argv: Sequence[str] | None = None, *, engine: Engine | None = None) -> 
             return _remove(engine, args)
         if args.command == "status":
             return _status(engine)
+        if args.command == "rules-publish":
+            return _rules_publish(engine, settings, args)
+        if args.command == "rules-status":
+            return _rules_status(engine)
     except MalwareBazaarError as exc:
         logger.error("malwarebazaar ingest failed", extra={"error": str(exc)})
         return 1
@@ -229,6 +258,64 @@ def _generate_api_key(key_id: str) -> int:
     entry = f"{key_id}:{hash_api_key(key)}"
     print(f"API key (give to the client, store securely; shown once):\n  {key}")
     print(f"Server entry (append to API_KEYS, comma-separated):\n  {entry}")
+    return 0
+
+
+def _rules_keygen(key_id: str, output: Path) -> int:
+    if output.exists():
+        logger.error("refusing to overwrite an existing key", extra={"path": str(output)})
+        return 1
+    key = generate_key(key_id)
+    output.write_text(key.private_pem, encoding="utf-8")
+    with contextlib.suppress(OSError):  # not every file system has POSIX permissions
+        output.chmod(0o600)
+    print(f"Private key written to {output}. Keep it offline; anyone with it can push rules.")
+    print("App setting (Gradle property blackshield.yaraRulesPublicKeys, comma-separated):")
+    print(f"  {key.public_spec}")
+    return 0
+
+
+def _rules_publish(engine: Engine, settings: Settings, args: argparse.Namespace) -> int:
+    key_path = args.key_file or (
+        Path(settings.rules_signing_key_file) if settings.rules_signing_key_file else None
+    )
+    if key_path is None:
+        logger.error("no signing key: pass --key-file or set RULES_SIGNING_KEY_FILE")
+        return 1
+    try:
+        key = load_private_key(key_path.read_text(encoding="utf-8"))
+        rules = args.path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError, SigningKeyError) as exc:
+        logger.error("cannot publish rules", extra={"error": str(exc)})
+        return 1
+    try:
+        with Session(engine) as session:
+            row = publish_ruleset(
+                session,
+                rules,
+                key_id=args.key_id or settings.rules_signing_key_id,
+                key=key,
+                min_version=args.min_version,
+            )
+            published = {"version": row.version, "sha256": row.sha256, "key_id": row.key_id}
+    except InvalidRuleset as exc:
+        logger.error("rules rejected", extra={"error": str(exc)})
+        return 1
+    _print(published)
+    return 0
+
+
+def _rules_status(engine: Engine) -> int:
+    with Session(engine) as session:
+        row = latest_ruleset(session)
+        _print(
+            {
+                "version": row.version if row else 0,
+                "sha256": row.sha256 if row else None,
+                "key_id": row.key_id if row else None,
+                "published_at": row.created_at.isoformat() if row else None,
+            }
+        )
     return 0
 
 

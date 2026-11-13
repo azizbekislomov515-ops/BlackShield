@@ -4,6 +4,7 @@ import com.blackshield.core.data.model.Verdict
 import com.blackshield.core.scanner.analysis.AppComponent
 import com.blackshield.core.scanner.analysis.AppProfile
 import com.blackshield.core.scanner.analysis.LauncherState
+import com.blackshield.core.scanner.yara.YaraMatch
 import java.util.concurrent.TimeUnit
 
 /**
@@ -166,6 +167,8 @@ class RiskEngine(private val rules: RiskRules) {
 
             is Condition.ObfuscatedComponents -> obfuscated(condition)
 
+            is Condition.PatternMatch -> patternEvidence(p.yaraMatches, condition)
+
             Condition.AccessibilityEnabled -> listOf("its accessibility service is switched on").takeIf {
                 p.accessibilityServiceEnabled
             }
@@ -302,6 +305,15 @@ class RiskEngine(private val rules: RiskRules) {
             val segments = className.split('.')
             return segments.last().length <= SHORT_NAME || segments.all { it.length <= SHORT_NAME }
         }
+
+        private fun patternEvidence(matches: List<YaraMatch>, condition: Condition.PatternMatch): List<String>? =
+            matches
+                .filter { it.severity in condition.severities }
+                .map { match ->
+                    "YARA rule ${match.rule} matched in ${match.location}" +
+                        match.description?.let { ": $it" }.orEmpty()
+                }.sorted()
+                .takeIf { it.isNotEmpty() }
 
         private fun componentRole(permission: String) =
             COMPONENT_ROLES[permission] ?: "component requiring ${shortPermission(permission)}"
