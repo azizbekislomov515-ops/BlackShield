@@ -80,10 +80,17 @@ class RiskEngine(private val rules: RiskRules) {
     }
 
     fun installSource(profile: AppProfile): InstallSource = when {
+        profile.isArchive -> InstallSource.OTHER_INSTALLER
+
+        // a downloaded file, installed through the package installer
         profile.isSystemApp -> InstallSource.PREINSTALLED
+
         profile.installerPackage == RiskRules.PLAY_STORE -> InstallSource.PLAY_STORE
+
         profile.installerPackage in rules.trustedInstallers -> InstallSource.TRUSTED_STORE
+
         profile.installerPackage != null -> InstallSource.OTHER_INSTALLER
+
         else -> InstallSource.UNKNOWN
     }
 
@@ -245,6 +252,7 @@ class RiskEngine(private val rules: RiskRules) {
                     ?.takeIf { it != p.installerPackage }
                     ?.let { ", started from ${WELL_KNOWN_INSTALLERS[it] ?: it}" }
                     .orEmpty()
+            if (p.isArchive) return "a downloaded APK file, not installed yet"
             return when (source) {
                 InstallSource.PREINSTALLED -> "preinstalled"
                 InstallSource.PLAY_STORE, InstallSource.TRUSTED_STORE -> "installed by $installer"

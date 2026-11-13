@@ -12,6 +12,7 @@ import com.blackshield.core.data.repository.ScanResultRepository
 import com.blackshield.core.data.repository.SignatureRepository
 import com.blackshield.core.scanner.analysis.ApkAnalyzer
 import com.blackshield.core.scanner.analysis.AppComponent
+import com.blackshield.core.scanner.analysis.AppProfile
 import com.blackshield.core.scanner.hash.FileHasher
 import com.blackshield.core.scanner.hash.HashAlgorithm
 import com.blackshield.core.scanner.hash.HashResult
@@ -207,6 +208,25 @@ class InstalledAppScannerTest {
         assertEquals(setOf("com.kept"), results.saved.keys)
     }
 
+    @Test
+    fun `scanPackage scans and saves one installed app`() = runTest {
+        signatures.add(MALWARE_SHA256, SignatureAlgorithm.SHA256, Severity.CRITICAL)
+        hasher.digests["/new/base.apk" to HashAlgorithm.SHA256] = MALWARE_SHA256
+        val apps = listOf(app("com.new", base = "/new/base.apk"), app("com.other", base = "/other/base.apk"))
+
+        val result = scanner(apps).scanPackage("com.new")
+
+        assertEquals(Verdict.MALICIOUS, result?.verdict)
+        assertEquals(setOf("com.new"), results.saved.keys)
+        assertEquals(listOf("/new/base.apk"), hasher.calls.map { it.first }.distinct())
+    }
+
+    @Test
+    fun `scanPackage of an app that is gone returns null and saves nothing`() = runTest {
+        assertNull(scanner(emptyList()).scanPackage("com.gone"))
+        assertTrue(results.saved.isEmpty())
+    }
+
     // --- helpers -------------------------------------------------------------------------
 
     private fun TestScope.scanner(apps: List<InstalledApp>, parallelism: Int = 4) = InstalledAppScanner(
@@ -246,11 +266,15 @@ class InstalledAppScannerTest {
 
     private class FakeAppSource(private val apps: List<InstalledApp>) : InstalledAppSource {
         override suspend fun installedApps() = apps
+
+        override suspend fun installedApp(packageName: String) = apps.firstOrNull { it.packageName == packageName }
     }
 
     /** Profiles straight from [InstalledApp], plus per-package components set by a test. */
     private class FakeAnalyzer : ApkAnalyzer {
         val components = java.util.concurrent.ConcurrentHashMap<String, List<AppComponent>>()
+
+        override fun analyzeArchive(path: String): AppProfile? = null
 
         override fun startSession() = ApkAnalyzer.Session { app ->
             TestProfiles.profile(
@@ -328,6 +352,8 @@ class InstalledAppScannerTest {
         override suspend fun retainOnly(installed: Set<String>) {
             saved.keys.retainAll(installed)
         }
+
+        override suspend fun find(packageName: String) = saved[packageName]
     }
 
     private class FakeAllowListRepository : AllowListRepository {

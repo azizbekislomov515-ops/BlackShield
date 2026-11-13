@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Real-time protection. Every permission is explained in docs/permissions.md. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- The protection service, typed specialUse (Android 14+). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Restart protection after a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Threat warnings (runtime permission on Android 13+, requested when protection is turned on). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- "Uninstall" in a warning opens the system uninstall dialog (ACTION_DELETE); the user confirms there. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Downloads monitoring on Android 10 and older. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <!--
+        Downloads monitoring on Android 11+: other apps' APK files in Download/ are invisible without
+        All files access (MediaStore only lists media and your own downloads; SAF cannot grant the
+        Download root). Optional and requested only when the user turns the feature on. Google Play
+        lists antivirus apps as a permitted use. See docs/permissions.md.
+    -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <application>
+        <service
+            android:name=".RealtimeProtectionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Anti-malware real-time protection: scans each newly installed or updated app and new APK downloads as they appear, which requires the package-change broadcasts that only a running process receives." />
+        </service>
+
+        <receiver
+            android:name=".ProtectionBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".AlertActionReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>

@@ -158,6 +158,25 @@ class RiskEngineTest {
     }
 
     @Test
+    fun `a downloaded APK that is not installed counts as a sideloaded file`() {
+        val engine = TestProfiles.engine()
+        val archive = profile(
+            installer = null,
+            installedAt = 0
+        ).copy(isArchive = true, requestedPermissions = setOf(READ_SMS))
+
+        val result = engine.evaluate(archive, NOW)
+
+        assertEquals(InstallSource.OTHER_INSTALLER, engine.installSource(archive))
+        assertEquals(
+            listOf("a downloaded APK file, not installed yet"),
+            result.findings.single { it.ruleId == "unknown_source" }.evidence
+        )
+        assertTrue("no install time yet", result.findings.none { it.ruleId == "recently_sideloaded" })
+        assertTrue(result.findings.any { it.ruleId == "reads_sms_unknown_source" })
+    }
+
+    @Test
     fun `evaluation is deterministic regardless of collection order`() {
         val base = maliciousLooking()
         val shuffled =

@@ -57,7 +57,9 @@ fun ScanResultDetailsSheet(
     result: ScanResult,
     trusted: Boolean,
     onTrustedChange: (Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** False for a downloaded file: only installed apps can be trusted. */
+    showTrust: Boolean = true
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -98,12 +100,14 @@ fun ScanResultDetailsSheet(
             }
             result.reasons.forEach { reason -> ReasonRow(reason) }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.details_trust), style = MaterialTheme.typography.bodyLarge)
-                    Text(stringResource(R.string.details_trust_hint), style = MaterialTheme.typography.bodySmall)
+            if (showTrust) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.details_trust), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.details_trust_hint), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = trusted, onCheckedChange = onTrustedChange)
                 }
-                Switch(checked = trusted, onCheckedChange = onTrustedChange)
             }
         }
     }

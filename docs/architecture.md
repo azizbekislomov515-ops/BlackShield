@@ -90,7 +90,7 @@ Android app                                              backend
 ### 3.5 Background work
 
 - WorkManager with a Hilt worker factory, owned by `:app` (`AppModule` provides `WorkManager`).
-- `ProtectionWorker`: schedule and constraints _TBD_.
+- Real-time protection is a foreground service, not WorkManager (see 3.8).
 - `SignatureSyncWorker` (`:core:sync`), scheduled by `SignatureSyncScheduler` from `BlackShieldApplication`:
   - periodic, every 6 hours, battery and storage not low, on an unmetered network when the user's *Update over
     Wi-Fi only* setting is on (default off), otherwise any network. A setting change re-enqueues with
@@ -132,6 +132,46 @@ Android app                                              backend
   compressed and is staged on disk as received.
 - Retries and backoff are WorkManager's (see 3.5), not OkHttp interceptors.
 
+### 3.8 Real-time protection (`:feature:protection`)
+
+- **`RealtimeProtectionService`**, a foreground service of type `specialUse` with a low-importance status
+  notification ("Turn off" action):
+  - **Why a service:** since Android 8, `PACKAGE_ADDED` / `PACKAGE_REPLACED` reach only receivers registered at
+    runtime in a running process.
+  - **Why `specialUse`:** `dataSync` is capped at 6 h a day and is blocked from `BOOT_COMPLETED` on Android 15+.
+  - **Lifetime:** not `stopWithTask`, so it survives swipe-away, and it is `START_STICKY`.
+  - **Restarts:** `ProtectionBootReceiver` (`BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, both exempt from the background
+    FGS start restrictions) restores it after a reboot or update. `MainActivity` keeps it in line with the setting
+    while visible.
+  - **Catch-up:** installs missed while it was not running are found with `PackageManager.getChangedPackages()`.
+    The cursor is stored with the boot count, because sequence numbers restart at boot.
+- **Install path:** dynamic receiver → `ProtectionEngine`, which debounces each package for 300 ms (an update sends
+  ADDED + REPLACED) → `InstalledAppScanner.scanPackage()` → result saved → `AlertPolicy` → high-importance warning with
+  Uninstall (system `ACTION_DELETE` dialog), Ignore (by APK SHA-256) and Details. Measured on the emulator: the
+  warning appears 0.4–0.9 s after an install finishes.
+- **Files:** `ApkFileScanner` scans APKs before installation. Content URIs are copied to a private cache file;
+  archives are parsed with `getPackageArchiveInfo` plus the manifest parser, and `AppProfile.isArchive` makes the
+  source count as "downloaded file". Watchers, chosen by `WatchPlanner`:
+  - **Download, Android 11+:** MediaStore observer with a `GENERATION_MODIFIED` cursor; needs All files access.
+    Pending rows are included, because files written straight through FUSE can stay pending.
+  - **Download, Android 10 and older:** `FileObserver` (`CLOSE_WRITE` / `MOVED_TO`); needs `READ_EXTERNAL_STORAGE`.
+  - **User-picked folders:** Storage Access Framework trees, observed through the provider's notification URI while
+    a cursor stays open. No permission needed.
+  - File events are debounced for 1.5 s and deduplicated by path, size and modification time. There is no polling
+    anywhere.
+- **Alerts for files** carry the result in the Details intent (`FileResultCodec`), since a file has no stored
+  result. They have no Uninstall action: the file is not installed.
+- **Troubleshooting screen:** `DeviceHealthReader` takes a snapshot (notifications and threat channel, battery
+  optimization, background restriction, standby bucket, storage access, manufacturer), and the pure
+  `TroubleshootingChecks` ranks the issues, each with a fix that opens the right system or vendor screen.
+- **Permissions:** see [permissions.md](permissions.md#real-time-protection), including why All files access is
+  the only way to watch Downloads on Android 11+.
+- **Known limits:**
+  - Files written straight through the file system by some apps (e.g. `adb`) can stay pending in MediaStore and are
+    never announced. Such an APK is still scanned when it is installed.
+  - Folder watching covers the top level of a picked folder only.
+  - Some vendor task killers can stop any service; the troubleshooting screen guides the user.
+
 ## 4. Backend
 
 - FastAPI application factory (`app/main.py`), routers in `app/api/`.
@@ -161,6 +201,8 @@ Android app                                              backend
 | 2026-11-12 | AGP 9 built-in Kotlin with convention plugins | Shared configuration across 8 modules. |
 | 2026-11-12 | Signatures in SQLite with a hex TEXT primary key | Simple and indexed; fine to ~1M rows. Revisit (binary keys, `WITHOUT ROWID`, prefix filter) before shipping large feeds. |
 | 2026-11-13 | Static analysis rules as JSON, strict schema, capability cap | Updatable from the backend; a bad file is rejected whole; capabilities alone cannot make an app malicious. |
+| 2026-11-13 | Real-time protection as a `specialUse` foreground service | Package broadcasts need a running process; `dataSync` has daily limits and boot restrictions. |
+| 2026-11-13 | All files access only for Downloads on Android 11+, optional | No narrower API can see other apps' APK downloads; SAF covers other folders without a permission. |
 | 2026-11-13 | Own binary-manifest parser, attributes by resource ID | PackageManager hides intent filters; reading attributes like the platform defeats renamed-attribute tricks. |
 | 2026-11-12 | `QUERY_ALL_PACKAGES` | Malware cannot be found with `<queries>`; allowed by Play for anti-malware apps. |
 | 2026-11-13 | Download first, then one transaction (delta pages in memory, snapshot to a file) | The write transaction never waits on the network, and a killed process can only roll back. |

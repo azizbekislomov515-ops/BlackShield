@@ -17,4 +17,7 @@ data class InstalledApp(
 /** Enumerates installed packages. Backed by PackageManager; faked in tests. */
 interface InstalledAppSource {
     suspend fun installedApps(): List<InstalledApp>
+
+    /** One package, or null if it is not installed (or not visible). */
+    suspend fun installedApp(packageName: String): InstalledApp?
 }

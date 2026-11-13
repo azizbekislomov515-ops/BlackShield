@@ -23,6 +23,25 @@ constructor(@ApplicationContext private val context: Context) :
         installedPackages(pm).mapNotNull { info -> info.toInstalledApp(pm) }
     }
 
+    override suspend fun installedApp(packageName: String): InstalledApp? = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        try {
+            val info =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.getPackageInfo(
+                        packageName,
+                        PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+                }
+            info.toInstalledApp(pm)
+        } catch (ignored: PackageManager.NameNotFoundException) {
+            null // uninstalled again before we got to it
+        }
+    }
+
     private fun installedPackages(pm: PackageManager): List<PackageInfo> =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))

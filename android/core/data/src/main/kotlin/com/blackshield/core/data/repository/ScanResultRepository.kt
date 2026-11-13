@@ -12,6 +12,8 @@ interface ScanResultRepository {
 
     suspend fun save(result: ScanResult)
 
+    suspend fun find(packageName: String): ScanResult?
+
     /** Removes results for packages not in [installed] (apps uninstalled since the last scan). */
     suspend fun retainOnly(installed: Set<String>)
 }
@@ -23,6 +25,8 @@ constructor(private val dao: ScanResultDao) :
     override fun observeLatest(): Flow<List<ScanResult>> = dao.observeAll()
 
     override suspend fun save(result: ScanResult) = dao.upsert(result.copy(id = 0))
+
+    override suspend fun find(packageName: String): ScanResult? = dao.find(packageName)
 
     override suspend fun retainOnly(installed: Set<String>) {
         val stale = dao.packageNames().filterNot { it in installed }

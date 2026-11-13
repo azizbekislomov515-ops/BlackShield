@@ -3,4 +3,8 @@
     <string name="app_name">BlackShield</string>
     <string name="nav_scan">Scan</string>
     <string name="nav_settings">Settings</string>
+    <string name="notification_prompt_title">Allow warnings?</string>
+    <string name="notification_prompt_body">Real-time protection checks every app you install and can warn you right away when one is harmful. To show those warnings, BlackShield needs permission to send notifications.</string>
+    <string name="notification_prompt_allow">Continue</string>
+    <string name="notification_prompt_later">Not now</string>
 </resources>

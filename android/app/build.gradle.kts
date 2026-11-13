@@ -1,4 +1,5 @@
 import com.android.build.api.variant.BuildConfigField
+import com.blackshield.buildlogic.CopyApkTask
 import com.blackshield.buildlogic.Sha256OfApkTask
 
 plugins {
@@ -16,8 +17,21 @@ val eicarTestApkSha256 =
         outputFile.set(layout.buildDirectory.file("eicar/eicar-test-apk.sha256"))
     }
 
+// The instrumented real-time protection test installs the same APK, so it ships as a test asset.
+val eicarTestApkAsset =
+    tasks.register<CopyApkTask>("eicarTestApkAsset") {
+        dependsOn(":testing:eicar-apk:assembleDebug")
+        apkDirectory.set(rootProject.layout.projectDirectory.dir("testing/eicar-apk/build/outputs/apk/debug"))
+        fileName.set("eicar-test.apk")
+        outputDirectory.set(layout.buildDirectory.dir("eicar/androidTestAssets"))
+    }
+
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
+        variant.androidTest?.sources?.assets?.addGeneratedSourceDirectory(
+            eicarTestApkAsset,
+            CopyApkTask::outputDirectory
+        )
         variant.buildConfigFields?.put(
             "EICAR_TEST_APK_SHA256",
             eicarTestApkSha256.flatMap { it.outputFile }.map { file ->
@@ -79,7 +93,13 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.timber)
 
     testImplementation(libs.junit)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }

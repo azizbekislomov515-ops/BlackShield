@@ -12,6 +12,12 @@ import com.blackshield.core.scanner.apps.InstalledApp
 interface ApkAnalyzer {
     fun startSession(): Session
 
+    /**
+     * Profiles an APK file that is not installed (a download about to be installed). Null if the
+     * file is not a parseable APK. The profile has [AppProfile.isArchive] set.
+     */
+    fun analyzeArchive(path: String): AppProfile?
+
     fun interface Session {
         /** Never throws for a single app's bad data: what could not be read goes into [AppProfile.analysisGaps]. */
         suspend fun analyze(app: InstalledApp): AppProfile

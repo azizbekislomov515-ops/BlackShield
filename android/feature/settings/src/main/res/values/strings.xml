@@ -3,6 +3,21 @@
     <string name="settings_title">Settings</string>
     <string name="settings_section_protection">Protection</string>
     <string name="settings_real_time_protection">Real-time protection</string>
+    <string name="settings_real_time_protection_summary">Checks every app as soon as it is installed or updated, and warns you if it is harmful. Shows a small permanent notification while on.</string>
+    <string name="settings_notifications_missing">Notifications are off, so BlackShield cannot warn you about a harmful app.</string>
+    <string name="settings_allow">Allow</string>
+    <string name="settings_watch_downloads">Check downloaded APK files</string>
+    <string name="settings_watch_downloads_summary">Checks new APK files in Download as they arrive, before you install them.</string>
+    <string name="settings_downloads_access_missing">BlackShield cannot see the Download folder yet. Allow \"All files access\" to check downloaded APK files.</string>
+    <string name="settings_watched_folders">Other folders to check</string>
+    <string name="settings_watched_folders_summary">New APK files in these folders are checked too. Folders you pick here need no extra permission.</string>
+    <string name="settings_add_folder">Add folder</string>
+    <string name="settings_remove_folder">Remove</string>
+    <string name="settings_troubleshooting">Troubleshooting</string>
+    <string name="settings_all_files_title">Allow all files access?</string>
+    <string name="settings_all_files_body">Android only lets an app see files downloaded by other apps with \"All files access\". BlackShield uses it only to check new APK files in Download for malware before you install them. It does not read, upload or change your other files. On the next screen, turn on access for BlackShield.</string>
+    <string name="settings_continue">Continue</string>
+    <string name="settings_not_now">Not now</string>
 
     <string name="settings_section_signatures">Malware signatures</string>
     <string name="settings_signature_version">Database version</string>

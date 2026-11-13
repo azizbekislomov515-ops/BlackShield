@@ -76,5 +76,10 @@ data class AppProfile(
     /** It is an active device administrator. */
     val deviceAdminActive: Boolean = false,
     /** What could not be read (e.g. an unparseable manifest), so missing data is never silent. */
-    val analysisGaps: List<String> = emptyList()
+    val analysisGaps: List<String> = emptyList(),
+    /**
+     * An APK file that is not installed (e.g. a fresh download). Its source counts as a downloaded
+     * file; installer, install time and runtime state do not exist yet.
+     */
+    val isArchive: Boolean = false
 )

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notification channels -->
+    <string name="channel_status_name">Protection status</string>
+    <string name="channel_status_description">Shows that real-time protection is running. Required by Android for a background service.</string>
+    <string name="channel_threats_name">Threat warnings</string>
+    <string name="channel_threats_description">Warnings about harmful or suspicious apps and downloaded APK files.</string>
+
+    <!-- Status notification -->
+    <string name="status_title">Real-time protection is on</string>
+    <string name="status_text_apps">Checking every app you install or update</string>
+    <string name="status_text_files">Checking new apps and downloaded APK files</string>
+    <string name="action_turn_off">Turn off</string>
+
+    <!-- Threat notifications -->
+    <string name="threat_title_malicious">%1$s is harmful</string>
+    <string name="threat_title_suspicious">%1$s looks suspicious</string>
+    <string name="threat_text_app">BlackShield checked this app as it was installed.</string>
+    <string name="threat_text_file">Found in the downloaded file %1$s. It is not installed: do not install it.</string>
+    <string name="action_uninstall">Uninstall</string>
+    <string name="action_ignore">Ignore</string>
+    <string name="action_details">Details</string>
+
+    <!-- Troubleshooting -->
+    <string name="troubleshooting_title">Protection troubleshooting</string>
+    <string name="troubleshooting_back">Back</string>
+    <string name="troubleshooting_intro">Real-time protection runs in the background. Some settings and some phone makers stop background apps; this page checks for them.</string>
+    <string name="troubleshooting_all_good">Everything looks good. Real-time protection can keep running.</string>
+
+    <string name="issue_protection_off_title">Real-time protection is off</string>
+    <string name="issue_protection_off_body">New apps and downloads are not checked until you turn it on.</string>
+    <string name="issue_not_running_title">Protection is not running</string>
+    <string name="issue_not_running_body">It is switched on, but the system stopped it. Restart it, then check the items below.</string>
+    <string name="issue_notifications_title">Notifications are blocked</string>
+    <string name="issue_notifications_body">BlackShield cannot warn you about a harmful app while its notifications are off.</string>
+    <string name="issue_threat_channel_title">Threat warnings are switched off</string>
+    <string name="issue_threat_channel_body">The \"Threat warnings\" notification category is off, so warnings would not appear.</string>
+    <string name="issue_background_title">Background use is restricted</string>
+    <string name="issue_background_body">Android stops restricted apps in the background. In App info, open Battery (or App battery usage) and choose \"Unrestricted\" or \"Optimized\".</string>
+    <string name="issue_battery_title">Battery optimization is on</string>
+    <string name="issue_battery_body">The system may pause protection to save battery. Choose BlackShield in the list and select \"Don\'t optimize\" or \"Unrestricted\". Protection is event-driven and uses very little battery.</string>
+    <string name="issue_bucket_title">Android considers BlackShield rarely used</string>
+    <string name="issue_bucket_body">Open the app now and then, or make sure background use is not limited in App info.</string>
+    <string name="issue_downloads_title">Downloads cannot be checked</string>
+    <string name="issue_downloads_body">Checking downloaded APK files is on, but BlackShield cannot see the Download folder. Allow \"All files access\" for BlackShield.</string>
+    <string name="issue_oem_title">Your phone maker may stop background apps</string>
+
+    <string name="oem_xiaomi">On Xiaomi, Redmi and POCO phones, turn on Autostart for BlackShield and set Battery saver to \"No restrictions\". You can also lock BlackShield in the recent apps screen.</string>
+    <string name="oem_huawei">On Huawei and Honor phones, open App launch and set BlackShield to \"Manage manually\" with auto-launch, secondary launch and run in background all on.</string>
+    <string name="oem_samsung">On Samsung phones, make sure BlackShield is not in \"Sleeping apps\" or \"Deep sleeping apps\" (Battery &gt; Background usage limits), and add it to \"Never sleeping apps\".</string>
+    <string name="oem_oneplus">On OnePlus phones, allow auto-launch for BlackShield and set its battery usage to \"Don\'t optimize\".</string>
+    <string name="oem_oppo">On OPPO and realme phones, allow auto-launch and background activity for BlackShield in the startup manager and battery settings.</string>
+    <string name="oem_vivo">On vivo and iQOO phones, allow background start and high background power consumption for BlackShield.</string>
+
+    <string name="fix_enable">Turn on</string>
+    <string name="fix_restart">Restart protection</string>
+    <string name="fix_notifications">Notification settings</string>
+    <string name="fix_battery">Battery optimization</string>
+    <string name="fix_app_settings">App info</string>
+    <string name="fix_all_files">Allow all files access</string>
+    <string name="fix_oem">Open phone settings</string>
+</resources>

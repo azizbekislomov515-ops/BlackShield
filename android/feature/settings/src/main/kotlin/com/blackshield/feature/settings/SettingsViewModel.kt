@@ -31,7 +31,11 @@ data class SignatureDatabaseStatus(
 data class SettingsUiState(
     val realTimeProtectionEnabled: Boolean = true,
     val wifiOnly: Boolean = false,
-    val signatures: SignatureDatabaseStatus = SignatureDatabaseStatus()
+    val signatures: SignatureDatabaseStatus = SignatureDatabaseStatus(),
+    /** Real-time protection also checks new APK files in Downloads. */
+    val watchDownloads: Boolean = false,
+    /** SAF tree URIs of extra folders to watch. */
+    val watchedFolders: List<String> = emptyList()
 )
 
 @HiltViewModel
@@ -63,10 +67,27 @@ constructor(
                         lastError = sync.lastError
                     )
             )
+        }.combine(combine(userPreferences.watchDownloads, userPreferences.watchedFolders, ::Pair)) {
+                settings,
+                (downloads, folders)
+            ->
+            settings.copy(watchDownloads = downloads, watchedFolders = folders.sorted())
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SettingsUiState())
 
     fun setRealTimeProtectionEnabled(enabled: Boolean) {
         viewModelScope.launch { userPreferences.setRealTimeProtectionEnabled(enabled) }
+    }
+
+    fun setWatchDownloads(watch: Boolean) {
+        viewModelScope.launch { userPreferences.setWatchDownloads(watch) }
+    }
+
+    fun addWatchedFolder(treeUri: String) {
+        viewModelScope.launch { userPreferences.addWatchedFolder(treeUri) }
+    }
+
+    fun removeWatchedFolder(treeUri: String) {
+        viewModelScope.launch { userPreferences.removeWatchedFolder(treeUri) }
     }
 
     fun setWifiOnly(wifiOnly: Boolean) {

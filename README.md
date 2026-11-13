@@ -122,7 +122,7 @@ BLACKSHIELD_API_KEY=bs_... BLACKSHIELD_API_BASE_URL=http://localhost:8000/ ./gra
 | `:core:network` | Retrofit + OkHttp client for the backend: API key, certificate pinning, typed models, snapshot reader |
 | `:core:sync` | Signature sync: engine, `SignatureSyncWorker` (WorkManager), scheduler, sync state |
 | `:feature:scan` | Scan screen: Scan now, live progress, results with verdicts, details |
-| `:feature:protection` | Background protection worker (WorkManager) |
+| `:feature:protection` | Real-time protection: foreground service, install and download monitoring, threat notifications, troubleshooting screen |
 | `:feature:webshield` | Web protection (placeholder) |
 | `:feature:settings` | Settings: real-time protection, signature database status, Sync now, Wi-Fi-only updates |
 | `:testing:eicar-apk` | Harmless test app whose hash debug builds treat as malware |

@@ -118,6 +118,17 @@ constructor(
         send(ScanProgress.Completed(apps.size, malicious.get(), suspicious.get(), clock.millis() - startedAt))
     }
 
+    /**
+     * Scans one installed package (e.g. right after it was installed or updated) and saves the
+     * result. Returns null if the package is not installed (anymore).
+     */
+    suspend fun scanPackage(packageName: String): ScanResult? = withContext(dispatcher) {
+        val app = appSource.installedApp(packageName) ?: return@withContext null
+        val algorithms = signatures.algorithmsInUse().map { it.toHashAlgorithm() }.toSet() + HashAlgorithm.SHA256
+        val allowListed = packageName in allowList.allowedPackages()
+        scanApp(app, algorithms, allowListed, analyzer.startSession()).also { results.save(it) }
+    }
+
     private suspend fun scanApp(
         app: InstalledApp,
         algorithms: Set<HashAlgorithm>,

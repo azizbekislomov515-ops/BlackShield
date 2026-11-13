@@ -40,14 +40,22 @@ import java.text.NumberFormat
 import java.time.Instant
 
 @Composable
-fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsRoute(
+    modifier: Modifier = Modifier,
+    onOpenTroubleshooting: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     SettingsScreen(
         state = state,
         onRealTimeProtectionChange = viewModel::setRealTimeProtectionEnabled,
         onWifiOnlyChange = viewModel::setWifiOnly,
         onSyncNow = viewModel::syncNow,
-        modifier = modifier
+        modifier = modifier,
+        onWatchDownloadsChange = viewModel::setWatchDownloads,
+        onFolderAdded = viewModel::addWatchedFolder,
+        onFolderRemoved = viewModel::removeWatchedFolder,
+        onOpenTroubleshooting = onOpenTroubleshooting
     )
 }
 
@@ -58,7 +66,11 @@ fun SettingsScreen(
     onRealTimeProtectionChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
     onSyncNow: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onWatchDownloadsChange: (Boolean) -> Unit = {},
+    onFolderAdded: (String) -> Unit = {},
+    onFolderRemoved: (String) -> Unit = {},
+    onOpenTroubleshooting: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -68,10 +80,13 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize().padding(innerPadding).verticalScroll(rememberScrollState())
         ) {
             SectionHeader(R.string.settings_section_protection)
-            SwitchRow(
-                title = stringResource(R.string.settings_real_time_protection),
-                checked = state.realTimeProtectionEnabled,
-                onCheckedChange = onRealTimeProtectionChange
+            RealTimeProtectionSection(
+                state = state,
+                onRealTimeProtectionChange = onRealTimeProtectionChange,
+                onWatchDownloadsChange = onWatchDownloadsChange,
+                onFolderAdded = onFolderAdded,
+                onFolderRemoved = onFolderRemoved,
+                onOpenTroubleshooting = onOpenTroubleshooting
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionHeader(R.string.settings_section_signatures)
@@ -179,7 +194,7 @@ private fun InfoRow(label: String, value: String, tag: String) {
 
 /** The whole row toggles, announced as a switch. */
 @Composable
-private fun SwitchRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, summary: String? = null) {
+internal fun SwitchRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, summary: String? = null) {
     Row(
         modifier =
             Modifier

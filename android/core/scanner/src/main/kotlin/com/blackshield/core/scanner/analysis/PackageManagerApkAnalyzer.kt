@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
@@ -24,6 +25,8 @@ internal class PackageManagerApkAnalyzer
 constructor(@ApplicationContext private val context: Context) :
     ApkAnalyzer {
     override fun startSession(): ApkAnalyzer.Session = Session(context)
+
+    override fun analyzeArchive(path: String): AppProfile? = Session(context).analyzeArchive(path)
 
     private class Session(private val context: Context) : ApkAnalyzer.Session {
         private val pm: PackageManager = context.packageManager
@@ -88,6 +91,54 @@ constructor(@ApplicationContext private val context: Context) :
                 accessibilityServiceEnabled = app.packageName in accessibilityEnabled,
                 deviceAdminActive = app.packageName in activeAdmins,
                 analysisGaps = gaps
+            )
+        }
+
+        fun analyzeArchive(path: String): AppProfile? {
+            val flags = PackageManager.GET_PERMISSIONS or SIGNING_FLAG or COMPONENT_FLAGS
+            val info =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.getPackageArchiveInfo(path, PackageManager.PackageInfoFlags.of(flags.toLong()))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageArchiveInfo(path, flags)
+                } ?: return null
+            val appInfo = info.applicationInfo?.apply {
+                // Needed to load the label and icon of an uninstalled APK.
+                sourceDir = path
+                publicSourceDir = path
+            }
+            val gaps = mutableListOf<String>()
+            val apk = ApkFiles.read(path, withManifest = true, gaps)
+            val manifest = apk.manifest
+            val launchers = manifest?.components?.filter { it.isLauncher && it.enabled != false }.orEmpty()
+            val requested = info.requestedPermissions?.toSet().orEmpty()
+            return AppProfile(
+                packageName = info.packageName,
+                label = appInfo?.loadLabel(pm)?.toString() ?: info.packageName,
+                isSystemApp = false,
+                isDebuggable = appInfo?.let { it.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 } ?: false,
+                installerPackage = null,
+                targetSdk = appInfo?.targetSdkVersion ?: manifest?.targetSdk ?: 0,
+                firstInstallTime = 0,
+                requestedPermissions = requested,
+                dangerousPermissions = requested.filterTo(HashSet(), ::isDangerous),
+                components = info.components(manifest?.components?.associate { it.name to it.intentFilters }.orEmpty()),
+                // A file cannot have hidden its icon yet; without a readable manifest, do not guess "none".
+                launcher =
+                    if (launchers.isNotEmpty() ||
+                        manifest == null
+                    ) {
+                        LauncherState.VISIBLE
+                    } else {
+                        LauncherState.NONE_DECLARED
+                    },
+                launcherActivities = launchers.map { it.name },
+                signingCertificates = info.signingCertificates(),
+                applicationClass = appInfo?.className ?: manifest?.applicationClass,
+                nativeLibraries = apk.libraries.toSet(),
+                analysisGaps = gaps,
+                isArchive = true
             )
         }
 
