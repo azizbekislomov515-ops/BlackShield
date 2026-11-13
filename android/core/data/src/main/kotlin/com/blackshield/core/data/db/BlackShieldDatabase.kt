@@ -7,10 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.blackshield.core.data.model.AllowListEntry
+import com.blackshield.core.data.model.BlockedDomain
 import com.blackshield.core.data.model.MalwareSignature
 import com.blackshield.core.data.model.QuarantineEntry
 import com.blackshield.core.data.model.ScanResult
 import com.blackshield.core.data.model.SignatureAlgorithmEntry
+import com.blackshield.core.data.model.WebActivityEntry
+import com.blackshield.core.data.model.WebAllowListEntry
 
 @Database(
     entities = [
@@ -18,9 +21,12 @@ import com.blackshield.core.data.model.SignatureAlgorithmEntry
         SignatureAlgorithmEntry::class,
         ScanResult::class,
         QuarantineEntry::class,
-        AllowListEntry::class
+        AllowListEntry::class,
+        BlockedDomain::class,
+        WebAllowListEntry::class,
+        WebActivityEntry::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -34,6 +40,12 @@ abstract class BlackShieldDatabase : RoomDatabase() {
     abstract fun allowListDao(): AllowListDao
 
     abstract fun quarantineDao(): QuarantineDao
+
+    abstract fun blockedDomainDao(): BlockedDomainDao
+
+    abstract fun webAllowListDao(): WebAllowListDao
+
+    abstract fun webActivityDao(): WebActivityDao
 
     companion object {
         const val NAME = "blackshield.db"

@@ -137,6 +137,143 @@
         "title": "DeltaResponse",
         "type": "object"
       },
+      "DomainDeltaAddition": {
+        "properties": {
+          "category": {
+            "enum": [
+              "malware",
+              "phishing"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "domain": {
+            "description": "Lower-case ASCII (IDNA) name; blocks it and every subdomain.",
+            "title": "Domain",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "category",
+          "version"
+        ],
+        "title": "DomainDeltaAddition",
+        "type": "object"
+      },
+      "DomainDeltaRemoval": {
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "version"
+        ],
+        "title": "DomainDeltaRemoval",
+        "type": "object"
+      },
+      "DomainDeltaResponse": {
+        "properties": {
+          "additions": {
+            "description": "Block these domains.",
+            "items": {
+              "$ref": "#/components/schemas/DomainDeltaAddition"
+            },
+            "title": "Additions",
+            "type": "array"
+          },
+          "latest_version": {
+            "description": "Latest version at the time of this request.",
+            "title": "Latest Version",
+            "type": "integer"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `cursor` (with the same `since`) for the next page; null when done.",
+            "title": "Next Cursor"
+          },
+          "removals": {
+            "description": "Stop blocking these domains.",
+            "items": {
+              "$ref": "#/components/schemas/DomainDeltaRemoval"
+            },
+            "title": "Removals",
+            "type": "array"
+          },
+          "since": {
+            "description": "The client's version, as requested.",
+            "title": "Since",
+            "type": "integer"
+          },
+          "until": {
+            "description": "Version this delta brings the client to once fully applied.",
+            "title": "Until",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "since",
+          "until",
+          "latest_version",
+          "additions",
+          "removals",
+          "next_cursor"
+        ],
+        "title": "DomainDeltaResponse",
+        "type": "object"
+      },
+      "DomainVersionResponse": {
+        "properties": {
+          "count": {
+            "description": "Active domains in that version.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When that version was published.",
+            "title": "Created At"
+          },
+          "version": {
+            "description": "Latest published domain-list version; 0 if none.",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "created_at",
+          "count"
+        ],
+        "title": "DomainVersionResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -481,6 +618,134 @@
         "summary": "Readiness",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/v1/domains/delta": {
+      "get": {
+        "description": "Net additions and removals since `since`, paginated, gzip-compressed.\n\nThe same protocol as `/v1/signatures/delta`: each domain appears at most once across all\npages with its latest state; store `until` only after the last page. `since=0` returns every\ndomain ever listed (removed ones as removals), which is how a client syncs the first time.",
+        "operationId": "domains_delta_v1_domains_delta_get",
+        "parameters": [
+          {
+            "description": "The client's current version; 0 for everything.",
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "The client's current version; 0 for everything.",
+              "minimum": 0,
+              "title": "Since",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Page size; defaults to 5,000 and is capped at 20,000.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page size; defaults to 5,000 and is capped at 20,000.",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "`next_cursor` from the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1024,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`next_cursor` from the previous page.",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainDeltaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid cursor, or cursor issued for a different `since`."
+          },
+          "409": {
+            "description": "`since` is newer than the server's latest version; start from 0."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          },
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Domains Delta",
+        "tags": [
+          "domains"
+        ]
+      }
+    },
+    "/v1/domains/version": {
+      "get": {
+        "description": "Latest published domain-list version. Clients poll this before syncing.",
+        "operationId": "domains_version_v1_domains_version_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          },
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Domains Version",
+        "tags": [
+          "domains"
         ]
       }
     },

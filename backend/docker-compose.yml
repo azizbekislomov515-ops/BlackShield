@@ -34,6 +34,24 @@ services:
       disable: true  # the image's healthcheck probes the API port, which the worker does not open
     restart: unless-stopped
 
+  # Periodic Web Shield domain ingestion (URLhaus; add --phishtank with PHISHTANK_APP_KEY).
+  # Opt in: docker compose --profile domains up. Run exactly one.
+  domains-worker:
+    build: .
+    profiles: [domains]
+    command: ["blackshield-signatures", "domains-schedule"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-blackshield}:${POSTGRES_PASSWORD:-blackshield}@db:5432/${POSTGRES_DB:-blackshield}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
   db:
     image: postgres:18-alpine
     environment:

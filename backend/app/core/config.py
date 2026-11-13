@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     # Must match the key id the app trusts (Gradle property blackshield.yaraRulesPublicKeys).
     rules_signing_key_id: str = "k1"
 
+    # --- Web Shield domain feeds -----------------------------------------------------------------
+    # URLhaus hosts file (CC0). abuse.ch's Auth-Key (MALWAREBAZAAR_API_KEY) is sent when set.
+    urlhaus_hostfile_url: str = "https://urlhaus.abuse.ch/downloads/hostfile/"
+    # PhishTank application key (free registration). Empty skips PhishTank.
+    phishtank_app_key: SecretStr | None = None
+    # Interval of `blackshield-signatures domains-schedule`.
+    domains_ingest_interval_seconds: int = Field(default=3_600, ge=300)
+
     # --- Ingestion -----------------------------------------------------------------------------
     malwarebazaar_api_key: SecretStr | None = None
     malwarebazaar_url: str = "https://mb-api.abuse.ch/api/v1/"

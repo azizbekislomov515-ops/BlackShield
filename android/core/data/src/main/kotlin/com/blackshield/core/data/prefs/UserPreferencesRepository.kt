@@ -51,10 +51,36 @@ constructor(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[Keys.WATCHED_FOLDERS] = prefs[Keys.WATCHED_FOLDERS].orEmpty() - treeUri }
     }
 
+    /** Web Shield (local DNS filter). Off until the user turns it on and grants the VPN permission. */
+    val webShieldEnabled: Flow<Boolean> = dataStore.data.map { prefs -> prefs[Keys.WEB_SHIELD] ?: false }
+
+    suspend fun setWebShieldEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.WEB_SHIELD] = enabled }
+    }
+
+    /** Show a "Blocked page" notification (with "Allow once") when a lookup is blocked. */
+    val webShieldNotifyBlocked: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.WEB_SHIELD_NOTIFY] ?: true }
+
+    suspend fun setWebShieldNotifyBlocked(notify: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.WEB_SHIELD_NOTIFY] = notify }
+    }
+
+    /** Keep a local-only log of blocked lookups (off by default: only counters are kept). */
+    val webShieldActivityLog: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.WEB_SHIELD_ACTIVITY_LOG] ?: false }
+
+    suspend fun setWebShieldActivityLog(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.WEB_SHIELD_ACTIVITY_LOG] = enabled }
+    }
+
     private object Keys {
         val REAL_TIME_PROTECTION = booleanPreferencesKey("real_time_protection")
         val SIGNATURE_SYNC_WIFI_ONLY = booleanPreferencesKey("signature_sync_wifi_only")
         val WATCH_DOWNLOADS = booleanPreferencesKey("watch_downloads")
         val WATCHED_FOLDERS = stringSetPreferencesKey("watched_folders")
+        val WEB_SHIELD = booleanPreferencesKey("web_shield")
+        val WEB_SHIELD_NOTIFY = booleanPreferencesKey("web_shield_notify")
+        val WEB_SHIELD_ACTIVITY_LOG = booleanPreferencesKey("web_shield_activity_log")
     }
 }

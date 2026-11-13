@@ -50,6 +50,9 @@ import com.blackshield.feature.scan.ScanResultDetailsSheet
 import com.blackshield.feature.scan.ScanRoute
 import com.blackshield.feature.scan.ScanViewModel
 import com.blackshield.feature.settings.SettingsRoute
+import com.blackshield.feature.webshield.WebShieldController
+import com.blackshield.feature.webshield.WebShieldNotifications
+import com.blackshield.feature.webshield.WebShieldRoute
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,6 +67,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var protection: ProtectionController
 
     @Inject lateinit var protectionState: ProtectionStateStore
+
+    @Inject lateinit var webShield: WebShieldController
 
     /** What a notification asked to show: a package's result or a downloaded file's result. */
     private val deepLink = MutableStateFlow<DeepLink?>(null)
@@ -80,6 +85,11 @@ class MainActivity : ComponentActivity() {
                     if (enabled) protection.start() else protection.stop()
                 }
             }
+        }
+        // Web Shield normally keeps running on its own (the system holds the VPN); this restarts it
+        // if it was on but stopped, e.g. after the app was updated.
+        lifecycleScope.launch {
+            if (preferences.webShieldEnabled.first()) webShield.start()
         }
         setContent {
             BlackShieldTheme {
@@ -106,11 +116,17 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent?) {
         intent ?: return
-        FileResultCodec.decode(intent.getStringExtra(ProtectionIntents.EXTRA_FILE_RESULT))?.let {
-            deepLink.value = DeepLink.File(it)
-            return
-        }
-        intent.getStringExtra(ProtectionIntents.EXTRA_SHOW_PACKAGE)?.let { deepLink.value = DeepLink.Package(it) }
+        val link =
+            when {
+                intent.getBooleanExtra(WebShieldNotifications.EXTRA_SHOW_WEB_SHIELD, false) -> DeepLink.WebShield
+
+                else ->
+                    FileResultCodec.decode(
+                        intent.getStringExtra(ProtectionIntents.EXTRA_FILE_RESULT)
+                    )?.let(DeepLink::File)
+                        ?: intent.getStringExtra(ProtectionIntents.EXTRA_SHOW_PACKAGE)?.let(DeepLink::Package)
+            }
+        link?.let { deepLink.value = it }
     }
 
     /** Once, on Android 13+, when protection is on but warnings could not be shown. */
@@ -126,10 +142,13 @@ sealed interface DeepLink {
     data class Package(val packageName: String) : DeepLink
 
     data class File(val result: ScanResult) : DeepLink
+
+    data object WebShield : DeepLink
 }
 
 private enum class Destination(@StringRes val label: Int, @DrawableRes val icon: Int) {
     SCAN(R.string.nav_scan, R.drawable.ic_nav_scan),
+    WEB_SHIELD(R.string.nav_web_shield, R.drawable.ic_nav_webshield),
     SETTINGS(R.string.nav_settings, R.drawable.ic_nav_settings)
 }
 
@@ -160,6 +179,11 @@ private fun BlackShieldApp(
 
                 is DeepLink.File -> shownFile = link.result
 
+                DeepLink.WebShield -> {
+                    troubleshooting = false
+                    destination = Destination.WEB_SHIELD
+                }
+
                 null -> Unit
             }
             deepLink.value = null
@@ -188,6 +212,8 @@ private fun BlackShieldApp(
         val content = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
         when (destination) {
             Destination.SCAN -> ScanRoute(modifier = content, viewModel = scanViewModel)
+
+            Destination.WEB_SHIELD -> WebShieldRoute(modifier = content)
 
             Destination.SETTINGS -> SettingsRoute(modifier = content, onOpenTroubleshooting = {
                 troubleshooting = true

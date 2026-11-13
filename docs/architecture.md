@@ -214,6 +214,36 @@ Android app                                              backend
   `severity` meta. YARA is skipped for system apps (exempt), apps the user trusts, and known-malware matches. Timeouts
   and unreadable entries are reported as `ANALYSIS_INCOMPLETE`.
 
+### 3.10 Web Shield (`:feature:webshield`)
+
+An on-device DNS filter built on `VpnService`.
+
+- **Routing.** The VPN routes only the virtual DNS server it advertises (`10.111.222.2`, `fd00:b1a5:5e1d::2`), so
+  only DNS enters it. BlackShield itself is excluded. Nothing is sent to a remote VPN server.
+- **Packet path.** `TunLoop` → `IpPackets` (IPv4/IPv6 + UDP, checksums) → `DnsPacketHandler` → `DnsFilter`.
+  - `TunLoop` reads the non-blocking interface on one thread that sleeps in `poll()`; a pipe wakes it to stop.
+  - `DnsMessages` parses only the question (compression pointers, loop and length limits).
+  - Blocked names get NXDOMAIN without an SOA, so the answer is not cached and "Allow once" works on the next
+    lookup. A sinkhole mode exists.
+  - Allowed queries go byte for byte through `DnsForwarder`: one socket per query, bound to the real network and
+    protected. Answer ids are checked, and servers are tried in order with a 2 s timeout.
+- **Real network.** `UpstreamTracker` follows the best non-VPN internet network (`registerBestMatchingNetworkCallback`
+  / `requestNetwork`). The default-network callback reports our own VPN even though the app is excluded.
+  - On a Wi-Fi/mobile switch the next query uses the new network's resolvers, and `setUnderlyingNetworks` keeps
+    transport and metering right.
+  - Private DNS in strict mode is detected and shown as a warning.
+- **Matching.** `DomainMatcher` is a label trie stored flat: reversed-label keys in a sorted array, one binary
+  search per label of the query, with subdomain matching. The user allowlist and temporary "Allow once" allowances
+  win over the blocklist. The matcher is rebuilt when the Room table changes; the domain sync is in
+  [sync-protocol.md](sync-protocol.md) section 8.
+- **Lifecycle.**
+  - `WebShieldController` asks for the VPN permission through the UI, after an explanation dialog.
+  - `onRevoke` (another VPN, or disconnected in settings) turns the setting off and notifies the user.
+  - The system can start the service as the always-on VPN. A boot receiver restarts it if it was on.
+  - State for the screen and the quick settings tile is a `StateFlow` in `WebShieldRuntime`.
+- **Privacy.** No domain is logged. Counters are aggregates, and the opt-in activity log keeps blocked lookups only,
+  for 7 days.
+
 ## 4. Backend
 
 - FastAPI application factory (`app/main.py`), routers in `app/api/`.
@@ -253,4 +283,8 @@ Android app                                              backend
 | 2026-11-14 | libyara via FetchContent (pinned tarball + SHA-256), own target list, `dex` + `math` only | No submodule to manage; upstream has no CMake build; unused modules (PE, ELF, .NET...) would add size for nothing. |
 | 2026-11-14 | YARA updates signed with ECDSA P-256, key offline, verified on every load | Ed25519 is not in the platform before API 33; the API server never holds the key, so a compromised server cannot push rules. |
 | 2026-11-14 | DEX streamed from the ZIP into memory, one entry at a time | DEX is stored compressed in most APKs; extracting would write user files to disk and cost I/O. |
+| 2026-11-14 | Web Shield as a DNS-only local VPN (two /32 and /128 routes), app excluded | The only way to see lookups without a remote server; browsing traffic never enters the app. |
+| 2026-11-14 | NXDOMAIN without SOA for blocked names | Works for every record type and is not cached, so "Allow once" takes effect at once. |
+| 2026-11-14 | Domain delta from version 0 instead of a snapshot endpoint | Domain lists are small (tens of thousands); one protocol, no NDJSON stream to maintain. |
+| 2026-11-14 | Never-block list on the backend | DNS blocks whole hosts; phishing on shared platforms must not take down Google Docs or GitHub Pages. |
 | 2026-11-14 | YARA matches scored as risk rules (critical +100) | One explanation model for every deduction; a critical match is malicious even from Play, while system and known-good apps stay exempt. |

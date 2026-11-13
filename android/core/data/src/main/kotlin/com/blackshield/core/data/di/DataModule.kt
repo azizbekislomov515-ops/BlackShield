@@ -8,18 +8,23 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.withTransaction
 import com.blackshield.core.data.db.AllowListDao
 import com.blackshield.core.data.db.BlackShieldDatabase
+import com.blackshield.core.data.db.BlockedDomainDao
 import com.blackshield.core.data.db.MultiRowSignatureWriter
 import com.blackshield.core.data.db.QuarantineDao
 import com.blackshield.core.data.db.ScanResultDao
 import com.blackshield.core.data.db.SignatureBulkWriter
 import com.blackshield.core.data.db.SignatureDao
 import com.blackshield.core.data.db.SignatureSyncDao
+import com.blackshield.core.data.db.WebActivityDao
+import com.blackshield.core.data.db.WebAllowListDao
 import com.blackshield.core.data.repository.AllowListRepository
+import com.blackshield.core.data.repository.DomainSyncStore
 import com.blackshield.core.data.repository.OfflineAllowListRepository
 import com.blackshield.core.data.repository.OfflineQuarantineRepository
 import com.blackshield.core.data.repository.OfflineScanResultRepository
 import com.blackshield.core.data.repository.OfflineSignatureRepository
 import com.blackshield.core.data.repository.QuarantineRepository
+import com.blackshield.core.data.repository.RoomDomainSyncStore
 import com.blackshield.core.data.repository.RoomSignatureSyncStore
 import com.blackshield.core.data.repository.ScanResultRepository
 import com.blackshield.core.data.repository.SignatureRepository
@@ -73,11 +78,28 @@ internal object DataModule {
         )
 }
 
+/** Web Shield's tables. */
+@Module
+@InstallIn(SingletonComponent::class)
+internal object WebShieldDataModule {
+    @Provides
+    fun provideBlockedDomainDao(database: BlackShieldDatabase): BlockedDomainDao = database.blockedDomainDao()
+
+    @Provides
+    fun provideWebAllowListDao(database: BlackShieldDatabase): WebAllowListDao = database.webAllowListDao()
+
+    @Provides
+    fun provideWebActivityDao(database: BlackShieldDatabase): WebActivityDao = database.webActivityDao()
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 internal abstract class RepositoryModule {
     @Binds
     abstract fun bindSignatureBulkWriter(impl: MultiRowSignatureWriter): SignatureBulkWriter
+
+    @Binds
+    abstract fun bindDomainSyncStore(impl: RoomDomainSyncStore): DomainSyncStore
 
     @Binds
     @Singleton

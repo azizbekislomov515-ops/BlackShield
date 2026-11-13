@@ -10,6 +10,11 @@
     blackshield-signatures rules-keygen --id k1 --output rules-key.pem
     blackshield-signatures rules-publish rules.yar [--key-file rules-key.pem] [--min-version 2]
     blackshield-signatures rules-status
+    blackshield-signatures domains-ingest [--phishtank]              # URLhaus (+ PhishTank) once
+    blackshield-signatures domains-schedule [--interval 3600]
+    blackshield-signatures domains-import list.txt --source local:x --category phishing
+    blackshield-signatures domains-remove evil.example [...]
+    blackshield-signatures domains-status
 
 Exit codes: 0 success, 1 failure, 2 partial success (some MalwareBazaar queries failed).
 """
@@ -30,6 +35,17 @@ from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.core.security import generate_api_key, hash_api_key
 from app.db.session import make_engine
+from app.domains.feeds import (
+    FORMATS,
+    FeedClient,
+    FeedError,
+    FeedReport,
+    import_domains,
+    ingest_phishtank,
+    ingest_urlhaus,
+)
+from app.domains.normalize import DomainRemoval, InvalidDomain, normalize_domain
+from app.domains.store import apply_domain_changes, latest_domain_version
 from app.ingest.local_feed import import_feed
 from app.ingest.malwarebazaar import (
     MalwareBazaarClient,
@@ -95,6 +111,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser("rules-status", help="print the latest published YARA ruleset version")
+
+    d_ingest = sub.add_parser("domains-ingest", help="import URLhaus (and PhishTank) domains once")
+    d_ingest.add_argument("--phishtank", action="store_true", help="also PhishTank (needs a key)")
+    d_schedule = sub.add_parser("domains-schedule", help="run domains-ingest periodically")
+    d_schedule.add_argument("--phishtank", action="store_true")
+    d_schedule.add_argument("--interval", type=int, help="seconds (default from settings)")
+    d_schedule.add_argument("--max-runs", type=int, help=argparse.SUPPRESS)
+    d_import = sub.add_parser("domains-import", help="import a local domain feed file")
+    d_import.add_argument("path", type=Path)
+    d_import.add_argument("--source", required=True, help="e.g. local:partner")
+    d_import.add_argument("--category", required=True, choices=["malware", "phishing"])
+    d_import.add_argument("--format", dest="fmt", default="list", choices=FORMATS)
+    d_import.add_argument(
+        "--replace", action="store_true", help="the file is the source's complete current list"
+    )
+    d_remove = sub.add_parser("domains-remove", help="stop blocking domains (false positives)")
+    d_remove.add_argument("domains", nargs="+")
+    sub.add_parser("domains-status", help="print the latest domain-list version")
     return parser
 
 
@@ -132,6 +166,16 @@ def main(argv: Sequence[str] | None = None, *, engine: Engine | None = None) -> 
             return _rules_publish(engine, settings, args)
         if args.command == "rules-status":
             return _rules_status(engine)
+        if args.command == "domains-ingest":
+            return _domains_ingest(engine, settings, phishtank=args.phishtank)
+        if args.command == "domains-schedule":
+            return _domains_schedule(engine, settings, args)
+        if args.command == "domains-import":
+            return _domains_import(engine, args)
+        if args.command == "domains-remove":
+            return _domains_remove(engine, args.domains)
+        if args.command == "domains-status":
+            return _domains_status(engine)
     except MalwareBazaarError as exc:
         logger.error("malwarebazaar ingest failed", extra={"error": str(exc)})
         return 1
@@ -314,6 +358,117 @@ def _rules_status(engine: Engine) -> int:
                 "sha256": row.sha256 if row else None,
                 "key_id": row.key_id if row else None,
                 "published_at": row.created_at.isoformat() if row else None,
+            }
+        )
+    return 0
+
+
+def _report(name: str, report: FeedReport) -> dict[str, object]:
+    return {
+        "feed": name,
+        "version": report.result.version,
+        "entries": report.entries,
+        "added": report.result.added + report.result.resurrected,
+        "removed": report.result.removed,
+        "unchanged": report.result.unchanged,
+        "invalid": report.invalid,
+        "protected": report.protected,
+        "examples": report.examples,
+        "active_count": report.result.active_count,
+    }
+
+
+def _domains_ingest(engine: Engine, settings: Settings, *, phishtank: bool) -> int:
+    client = FeedClient()
+    failed = 0
+    try:
+        mb_key = settings.malwarebazaar_api_key
+        feeds = [
+            (
+                "urlhaus",
+                lambda session: ingest_urlhaus(
+                    session,
+                    client,
+                    url=settings.urlhaus_hostfile_url,
+                    auth_key=mb_key.get_secret_value() if mb_key else None,
+                ),
+            )
+        ]
+        if phishtank:
+            key = settings.phishtank_app_key
+            feeds.append(
+                (
+                    "phishtank",
+                    lambda session: ingest_phishtank(
+                        session, client, app_key=key.get_secret_value() if key else ""
+                    ),
+                )
+            )
+        for name, run in feeds:
+            try:
+                with Session(engine) as session:
+                    _print(_report(name, run(session)))
+            except FeedError as exc:
+                failed += 1
+                logger.error("domain feed failed", extra={"feed": name, "error": str(exc)})
+    finally:
+        client.close()
+    if failed == 0:
+        return 0
+    return 1 if failed == len(feeds) else 2
+
+
+def _domains_schedule(engine: Engine, settings: Settings, args: argparse.Namespace) -> int:
+    stop = threading.Event()
+    stop_on_signals(stop)
+    run_periodically(
+        lambda: _domains_ingest(engine, settings, phishtank=args.phishtank),
+        interval=args.interval or settings.domains_ingest_interval_seconds,
+        stop=stop,
+        max_runs=args.max_runs,
+    )
+    return 0
+
+
+def _domains_import(engine: Engine, args: argparse.Namespace) -> int:
+    try:
+        text = args.path.read_text(encoding="utf-8", errors="replace")
+        with Session(engine) as session:
+            report = import_domains(
+                session,
+                text,
+                fmt=args.fmt,
+                source=args.source,
+                category=args.category,
+                replace=args.replace,
+            )
+    except (OSError, FeedError, InvalidDomain) as exc:
+        logger.error("domain import failed", extra={"path": str(args.path), "error": str(exc)})
+        return 1
+    _print(_report(args.source, report))
+    return 0
+
+
+def _domains_remove(engine: Engine, raw: Sequence[str]) -> int:
+    try:
+        removals = [DomainRemoval(normalize_domain(value)) for value in raw]
+    except InvalidDomain as exc:
+        logger.error("invalid domain", extra={"error": str(exc)})
+        return 1
+    with Session(engine) as session:
+        result = apply_domain_changes(session, removals)
+    _print({"version": result.version, "removed": result.removed})
+    return 0
+
+
+def _domains_status(engine: Engine) -> int:
+    with Session(engine) as session:
+        latest = latest_domain_version(session)
+        _print(
+            {
+                "version": latest.version if latest else 0,
+                "created_at": latest.created_at.isoformat() if latest else None,
+                "count": latest.count if latest else 0,
             }
         )
     return 0

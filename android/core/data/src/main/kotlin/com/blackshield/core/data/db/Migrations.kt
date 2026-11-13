@@ -55,4 +55,24 @@ internal val MIGRATION_1_2 =
         }
     }
 
-internal val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2)
+/** v2 -> v3: Web Shield's blocklist, user allowlist and opt-in activity log. Nothing existing changes. */
+internal val MIGRATION_2_3 =
+    object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `blocked_domains` (`domain` TEXT NOT NULL, `category` TEXT NOT NULL, " +
+                    "`added_at` INTEGER NOT NULL, PRIMARY KEY(`domain`))"
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `web_allow_list` (`domain` TEXT NOT NULL, " +
+                    "`added_at` INTEGER NOT NULL, PRIMARY KEY(`domain`))"
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `web_activity` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`domain` TEXT NOT NULL, `category` TEXT NOT NULL, `blocked_at` INTEGER NOT NULL)"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_web_activity_blocked_at` ON `web_activity` (`blocked_at`)")
+        }
+    }
+
+internal val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)

@@ -46,6 +46,16 @@ redistribution in a commercial product and record them in the table above. As a 
   example CC-BY-NC, or the Elastic License for some vendor rules).
 - Rules with no license at all are not licensed for redistribution: ask the author or leave them out.
 
+## Web Shield domain feeds (backend)
+
+| Feed | License / terms | Use |
+| --- | --- | --- |
+| [URLhaus](https://urlhaus.abuse.ch/) online hosts file | CC0 1.0; abuse.ch fair use | Default malware-domain source (`domains-ingest`). |
+| [PhishTank](https://phishtank.org/) `online-valid.json` | Free with an application key; attribution requested; check the current terms of use (rate limits, commercial use) before shipping | Optional phishing source (`domains-ingest --phishtank`, `PHISHTANK_APP_KEY`). |
+
+Feeds that forbid commercial use (for example OpenPhish's community feed) are not ingested. Local feeds imported
+with `domains-import` must meet the same bar as YARA rules above.
+
 ## Android and JVM libraries
 
 Kotlin, AndroidX (including Compose, Room, WorkManager, DataStore, Hilt), Dagger, Retrofit, OkHttp,

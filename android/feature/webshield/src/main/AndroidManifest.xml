@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Web Shield: an on-device DNS filter. Every permission is explained in docs/permissions.md. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Forwarding allowed DNS queries to the network's own resolver. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Following Wi-Fi/mobile switches to use the current network's resolver. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Tracking the real network under the VPN with requestNetwork() on Android 11 and older. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- Restarting Web Shield after a reboot, if it was on. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "Blocked page" notifications (runtime permission on Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <!--
+            The VPN carries only DNS for two virtual addresses; see WebShieldVpnService. The system
+            binds it with BIND_VPN_SERVICE, so no other app can. Supports always-on VPN.
+        -->
+        <service
+            android:name=".vpn.WebShieldVpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON"
+                android:value="true" />
+        </service>
+
+        <service
+            android:name=".WebShieldTileService"
+            android:exported="true"
+            android:icon="@android:drawable/ic_lock_lock"
+            android:label="@string/webshield_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <receiver
+            android:name=".BlockedPageReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".WebShieldBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

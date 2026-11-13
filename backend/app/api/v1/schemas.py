@@ -81,3 +81,31 @@ class RulesetResponse(BaseModel):
         description="YARA rule source; may import only the `dex` and `math` modules."
     )
     published_at: datetime
+
+
+class DomainVersionResponse(BaseModel):
+    version: int = Field(description="Latest published domain-list version; 0 if none.")
+    created_at: datetime | None = Field(description="When that version was published.")
+    count: int = Field(description="Active domains in that version.")
+
+
+class DomainDeltaAddition(BaseModel):
+    domain: str = Field(description="Lower-case ASCII (IDNA) name; blocks it and every subdomain.")
+    category: Literal["malware", "phishing"]
+    version: int
+
+
+class DomainDeltaRemoval(BaseModel):
+    domain: str
+    version: int
+
+
+class DomainDeltaResponse(BaseModel):
+    since: int = Field(description="The client's version, as requested.")
+    until: int = Field(description="Version this delta brings the client to once fully applied.")
+    latest_version: int = Field(description="Latest version at the time of this request.")
+    additions: list[DomainDeltaAddition] = Field(description="Block these domains.")
+    removals: list[DomainDeltaRemoval] = Field(description="Stop blocking these domains.")
+    next_cursor: str | None = Field(
+        description="Pass as `cursor` (with the same `since`) for the next page; null when done."
+    )

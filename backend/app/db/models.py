@@ -77,4 +77,50 @@ class YaraRuleset(Base):
     __table_args__ = (CheckConstraint("version > 0", name="version_positive"),)
 
 
-__all__ = ["ALGORITHMS", "SEVERITIES", "Base", "Signature", "SignatureVersion", "YaraRuleset"]
+DOMAIN_CATEGORIES = ("malware", "phishing")
+
+
+class BlockedDomain(Base):
+    """A malware or phishing domain for Web Shield. Same versioning model as ``Signature``:
+    ``version`` is the version of the row's latest change, and removed rows stay as tombstones so
+    a delta can tell clients to delete them (docs/sync-protocol.md, section 8).
+    """
+
+    __tablename__ = "blocked_domains"
+
+    # Lower-case ASCII (IDNA) name without a trailing dot; at most 253 characters.
+    domain: Mapped[str] = mapped_column(String(253), primary_key=True)
+    category: Mapped[str] = mapped_column(String(16))
+    source: Mapped[str] = mapped_column(String(64))
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime())
+    version: Mapped[int] = mapped_column(BigInteger)
+    removed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+
+    __table_args__ = (
+        CheckConstraint(_in("category", DOMAIN_CATEGORIES), name="category"),
+        Index("ix_blocked_domains_version_domain", "version", "domain"),
+        Index("ix_blocked_domains_source", "source"),
+    )
+
+
+class DomainVersion(Base):
+    """One row per published domain-list version. ``count`` is the number of active domains."""
+
+    __tablename__ = "domain_versions"
+
+    version: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    count: Mapped[int] = mapped_column(BigInteger)
+
+
+__all__ = [
+    "ALGORITHMS",
+    "DOMAIN_CATEGORIES",
+    "SEVERITIES",
+    "Base",
+    "BlockedDomain",
+    "DomainVersion",
+    "Signature",
+    "SignatureVersion",
+    "YaraRuleset",
+]

@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import hash_api_key
-from app.db.models import Signature, SignatureVersion, YaraRuleset
+from app.db.models import BlockedDomain, DomainVersion, Signature, SignatureVersion, YaraRuleset
 from app.db.session import engine_dependency, make_engine
 from app.main import create_app
 from app.signatures.normalize import Removal, SignatureRecord
@@ -67,6 +67,8 @@ def engine(migrated_engine: Engine) -> Engine:
         session.execute(delete(Signature))
         session.execute(delete(SignatureVersion))
         session.execute(delete(YaraRuleset))
+        session.execute(delete(BlockedDomain))
+        session.execute(delete(DomainVersion))
     return migrated_engine
 
 

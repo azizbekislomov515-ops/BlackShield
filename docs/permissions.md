@@ -147,3 +147,62 @@ The troubleshooting screen opens `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`, 
 BlackShield. It does not use `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` / `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`,
 because Play restricts that permission to a narrow set of use cases. Protection is event-driven (broadcasts,
 MediaStore and document notifications, debounced), with no polling, so it costs very little battery in practice.
+
+## Web Shield
+
+### VPN (`BIND_VPN_SERVICE`, user consent)
+
+Web Shield is a `VpnService`, because a VPN is the only way an Android app can see the device's DNS lookups. It is
+**off by default**. Before Android's own VPN consent dialog appears, the app explains in a dialog that:
+
+- only lookups pass through the filter;
+- nothing goes to a remote server;
+- no browsing history is kept.
+
+The system shows a key icon while it runs.
+
+What the VPN does:
+
+- **Routes only two virtual addresses**, the DNS server it advertises: `10.111.222.2` and `fd00:b1a5:5e1d::2`.
+  Every other packet bypasses it, so browsing traffic never reaches the app.
+- **Forwards allowed queries** byte for byte to the DNS servers of the real network (router, carrier or the
+  user's own) and relays the answers.
+- **Answers blocked names with NXDOMAIN.** Matching is against a local list with subdomain matching. Lookups are
+  never sent anywhere for checking.
+- **Excludes BlackShield itself** (`addDisallowedApplication`), so its own traffic never loops through the filter.
+- **Declares always-on support** (`SUPPORTS_ALWAYS_ON`). The service is not exported, and only the system can bind
+  it (`BIND_VPN_SERVICE`).
+
+**Google Play.** Play's VPN policy allows a `VpnService` whose core purpose is device security and filtering. The
+listing must declare the VPN use, and traffic must not be redirected or monetized. Web Shield redirects nothing and
+uploads nothing, and the in-app explanation says so.
+
+**Privacy.**
+- Domains are never written to logs.
+- Only aggregate counters are stored: blocked today, in the last 7 days and in total, split by category.
+- An **opt-in activity log** keeps blocked lookups (never allowed ones) on the device for 7 days, capped at 1,000
+  rows. Turning it off deletes it.
+
+**Limits.**
+- Apps that resolve names themselves bypass Web Shield, for example a browser with its own secure DNS provider.
+- Private DNS in strict mode ("hostname") also bypasses it. The screen warns when it is set.
+- DNS over TCP to the virtual server is not handled; stub resolvers use UDP.
+
+### Network access (`INTERNET`, `ACCESS_NETWORK_STATE`, `CHANGE_NETWORK_STATE`)
+
+- `INTERNET`: forwarding allowed queries to the network's resolver.
+- `ACCESS_NETWORK_STATE`: following Wi-Fi/mobile switches.
+- `CHANGE_NETWORK_STATE` (normal, auto-granted): on Android 11 and older, the real network under the VPN is tracked
+  with `requestNetwork()`, which needs it. The request is satisfied by the current default network and never brings
+  up another one. On Android 12+, `registerBestMatchingNetworkCallback()` is used and needs no permission.
+
+### Boot (`RECEIVE_BOOT_COMPLETED`)
+
+Web Shield is restarted after a reboot or an app update if it was on and the VPN permission is still granted. When
+BlackShield is the always-on VPN, the system starts it itself.
+
+### Battery
+
+The VPN interface is read by one thread that sleeps in `poll()` until a packet arrives, with no timers and no
+wakelocks. Counters are written about 2 s after a block, so nothing runs while nothing is blocked. "Blocked page"
+notifications are rate-limited to one per site per 10 minutes and one every 3 seconds overall.

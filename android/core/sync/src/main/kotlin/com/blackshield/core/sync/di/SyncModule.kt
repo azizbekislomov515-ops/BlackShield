@@ -20,6 +20,11 @@ import javax.inject.Singleton
 @Retention(AnnotationRetention.BINARY)
 annotation class SyncStateStore
 
+/** The [SyncStateRepository] tracking Web Shield's domain list (its own file). */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DomainSyncState
+
 /** Where snapshot downloads are staged before they are applied. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -33,6 +38,12 @@ internal object SyncModule {
     @SyncStateStore
     fun provideSyncStateDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         SyncStateRepository.createDataStore(context.preferencesDataStoreFile("signature_sync"))
+
+    @Provides
+    @Singleton
+    @DomainSyncState
+    fun provideDomainSyncState(@ApplicationContext context: Context): SyncStateRepository =
+        SyncStateRepository(SyncStateRepository.createDataStore(context.preferencesDataStoreFile("domain_sync")))
 
     /** noBackupFilesDir: not wiped by the system under storage pressure like the cache, never backed up. */
     @Provides

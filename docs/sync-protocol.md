@@ -310,3 +310,61 @@ without blocking the other, and the worker retries while any failure is retryabl
 
 Tests: `tests/test_rules.py` (backend), `YaraRulesSyncEngineTest`, `RulesetVerifierTest` (including a ruleset signed by
 the Python backend) and `YaraRulesTest` (JVM), `YaraOnDeviceTest` (instrumented, real engine).
+
+## 8. Web Shield domains
+
+Malware and phishing domains use the same versioned delta model as signatures (sections 1 to 3), in their own
+tables and version sequence.
+
+### Data model
+
+`blocked_domains` (migration 0003): `domain` (primary key, lower-case IDNA without a trailing dot), `category`
+(`malware`/`phishing`), `source`, `first_seen`, `version`, `removed`. `domain_versions` has one row per published
+version with its active `count`. Removed domains stay as tombstones, so a delta can tell clients to delete them.
+
+### Ingestion
+
+| Command | What it does |
+| --- | --- |
+| `blackshield-signatures domains-ingest [--phishtank]` | Downloads URLhaus's online malware hosts file and, with `--phishtank`, PhishTank's verified online phish. Each feed replaces its own previous list: domains a feed drops are removed, but only if that feed added them. |
+| `blackshield-signatures domains-schedule [--phishtank]` | The same every `DOMAINS_INGEST_INTERVAL_SECONDS` (default 3600). `docker compose --profile domains up` runs it. |
+| `blackshield-signatures domains-import FILE --source S --category C [--format list\|hosts\|csv\|phishtank] [--replace]` | Any local feed. `--replace` treats the file as the source's complete list. |
+| `blackshield-signatures domains-remove DOMAIN…` | Stop blocking (false positives). Publishes tombstones. |
+| `blackshield-signatures domains-status` | Latest version and count. |
+
+Normalization:
+- URLs, `host:port` and names become canonical domains. IP addresses, single labels and invalid labels are rejected.
+- **A never-block list protects shared platforms.** DNS can only block a whole host, so phishing on a Google Doc,
+  a URL shortener or GitHub Pages must never block the platform. First-party trees (`google.com` and everything
+  under it, `microsoft.com`, `bit.ly`…) are refused. So are shared-hosting roots (`github.io`, `web.app`,
+  `pages.dev`…), while their customers' subdomains stay blockable.
+- Invalid and protected entries are counted and reported, never imported.
+- A `--replace` import with no valid entries is refused, because a broken download must not empty the list.
+
+Downloads retry transport errors, 429 and 5xx with backoff, and are capped at 64 MiB.
+
+> Feed terms: URLhaus data is CC0 (abuse.ch). PhishTank requires a free application key and asks for
+> attribution; check its terms before shipping (docs/third-party.md). OpenPhish's free feed is non-commercial and
+> is not used.
+
+### API
+
+- `GET /v1/domains/version` → `{"version", "created_at", "count"}`.
+- `GET /v1/domains/delta?since=<v>[&limit=<n>][&cursor=<c>]` → `{"since", "until", "latest_version", "additions":
+  [{"domain", "category", "version"}], "removals": [{"domain", "version"}], "next_cursor"}`.
+  - Gzip when accepted. Same paging, cursor and 409 rules as the signature delta.
+  - `since=0` returns every domain ever listed: active ones as additions, removed ones as removals. That is how a
+    client downloads the whole list (there is no separate snapshot endpoint; the list is small).
+
+### Device
+
+`DomainSyncEngine` runs in `SignatureSyncWorker`, after signatures and YARA rules, with its own state file
+(`domain_sync`).
+
+1. Up to date with a matching count: one request.
+2. Behind: fetch the delta pages, then apply them in one transaction (`DomainSyncStore`), then record the version.
+3. First sync, server reset (409), a delta larger than `maxDeltaEntries`, or a count mismatch: fetch the delta from
+   0 and replace the whole list in one transaction.
+
+Payloads are validated strictly; an invalid domain or unknown category fails the sync and changes nothing. The VPN
+service rebuilds its in-memory matcher whenever the table changes, so new domains are blocked without a restart.

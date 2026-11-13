@@ -30,6 +30,22 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate2To3_schemaMatchesExportedV3_andKeepsData() {
+        helper.createDatabase(DB, 2).apply {
+            execSQL("INSERT INTO allow_list (package_name, added_at) VALUES ('com.kept', 1)")
+            close()
+        }
+        helper.runMigrationsAndValidate(DB, 3, true, MIGRATION_2_3).close()
+
+        val db = TestDatabases.open(DB)
+        runBlocking {
+            assertEquals(listOf("com.kept"), db.allowListDao().packageNames())
+            assertEquals(0L, db.blockedDomainDao().count())
+        }
+        db.close()
+    }
+
+    @Test
     fun migrate1To2_keepsLatestV1ResultPerTarget() {
         helper.createDatabase(DB, 1).apply {
             execSQL("INSERT INTO scan_results (target, verdict, scannedAtEpochMillis) VALUES ('com.a', 'CLEAN', 100)")

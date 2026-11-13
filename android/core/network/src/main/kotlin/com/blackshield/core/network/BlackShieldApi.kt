@@ -1,5 +1,7 @@
 package com.blackshield.core.network
 
+import com.blackshield.core.network.model.DomainDeltaResponse
+import com.blackshield.core.network.model.DomainVersionResponse
 import com.blackshield.core.network.model.HealthResponse
 import com.blackshield.core.network.model.ReputationLookupRequest
 import com.blackshield.core.network.model.ReputationLookupResponse
@@ -50,6 +52,17 @@ interface BlackShieldApi {
      */
     @GET("v1/rules")
     suspend fun yaraRules(@Header("If-None-Match") ifNoneMatch: String?): Response<ResponseBody>
+
+    @GET("v1/domains/version")
+    suspend fun domainVersion(): DomainVersionResponse
+
+    /** One page of the domain-list changes since [since] (0: the whole list). */
+    @GET("v1/domains/delta")
+    suspend fun domainDelta(
+        @Query("since") since: Long,
+        @Query("limit") limit: Int,
+        @Query("cursor") cursor: String? = null
+    ): DomainDeltaResponse
 
     /** Verdicts for up to 100 SHA-256 digests. Hashes only: never send file contents. */
     @POST("v1/reputation/lookup")

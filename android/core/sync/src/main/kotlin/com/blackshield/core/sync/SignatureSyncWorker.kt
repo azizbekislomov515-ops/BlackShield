@@ -8,8 +8,9 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
 /**
- * Runs one signature sync, then one YARA rules sync ([YaraRulesSyncEngine]). The two are
- * independent: a failure of one never keeps the other from being applied.
+ * Runs one signature sync, then one YARA rules sync ([YaraRulesSyncEngine]) and one Web Shield
+ * domain-list sync ([DomainSyncEngine]). They are independent: a failure of one never keeps the
+ * others from being applied.
  *
  * Retryable failures return [Result.retry], so WorkManager reschedules with exponential backoff
  * (see [SignatureSyncScheduler]); after [MAX_ATTEMPTS] the attempt is given up and the periodic
@@ -23,12 +24,14 @@ constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val engine: SignatureSyncEngine,
-    private val rules: YaraRulesSyncEngine
+    private val rules: YaraRulesSyncEngine,
+    private val domains: DomainSyncEngine
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val signatureError = (engine.sync() as? SyncResult.Failure)?.error
         val rulesError = (rules.sync() as? RulesSyncResult.Failure)?.error
-        return resultFor(listOfNotNull(signatureError, rulesError), runAttemptCount)
+        val domainsError = (domains.sync() as? DomainSyncResult.Failure)?.error
+        return resultFor(listOfNotNull(signatureError, rulesError, domainsError), runAttemptCount)
     }
 
     companion object {

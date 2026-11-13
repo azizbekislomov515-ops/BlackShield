@@ -160,3 +160,18 @@ Each libyara call has a 10 s timeout. An expired timeout is reported as an incom
 result. The acceptance target (a typical 50 MB APK in a few seconds) is met with a wide margin.
 
 **Still to do:** measure on a physical mid-range arm64 phone.
+
+## Web Shield
+
+Measured 2026-11-14 on the x86_64 emulator (API 37).
+
+| What | Result |
+| --- | --- |
+| Matcher lookup, 200,000 listed domains (JVM unit test) | well under 50 µs per lookup (the test's bound), with one String per domain |
+| Blocked lookup (`ping` of a listed subdomain) | answered from the device, without contacting any resolver |
+| Wi-Fi off → mobile data, and back (`WebShieldTest`) | lookups work again within about 1 s each time; blocking keeps working |
+
+Idle cost: none. The interface thread sleeps in `poll()`, and counters are written only after a block.
+
+**Still to do:** measure lookup latency (forwarded vs direct) on a physical phone, and battery over a day of
+normal browsing.
