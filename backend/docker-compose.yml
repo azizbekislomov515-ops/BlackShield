@@ -16,6 +16,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Periodic MalwareBazaar ingestion. Opt in: docker compose --profile worker up
+  # Needs MALWAREBAZAAR_API_KEY in .env. Run exactly one.
+  worker:
+    build: .
+    profiles: [worker]
+    command: ["blackshield-signatures", "schedule"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-blackshield}:${POSTGRES_PASSWORD:-blackshield}@db:5432/${POSTGRES_DB:-blackshield}
+    depends_on:
+      api:
+        condition: service_healthy  # the api container applies migrations on start
+    healthcheck:
+      disable: true  # the image's healthcheck probes the API port, which the worker does not open
+    restart: unless-stopped
+
   db:
     image: postgres:18-alpine
     environment:
