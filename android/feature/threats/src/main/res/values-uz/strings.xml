@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="threats_title">Tahdidlar</string>
+    <string name="threats_history">Tarix</string>
+    <string name="threats_none">Tahdid yo‘q</string>
+    <string name="threats_none_body">E’tibor talab qiladigan narsa yo‘q.</string>
+    <plurals name="threats_count">
+        <item quantity="one">%1$d ta tahdid</item>
+        <item quantity="other">%1$d ta tahdid</item>
+    </plurals>
+    <string name="threats_count_body">Xavfsiz qolish uchun ularni olib tashlang.</string>
+    <string name="threats_apps">Ilovalar</string>
+    <string name="threats_files">Fayllar</string>
+    <string name="threats_vault">Karantin</string>
+    <string name="threats_vault_encrypted">Shifrlangan</string>
+    <string name="threats_file_meta">%1$s · %2$s</string>
+    <string name="threats_vault_empty">Karantin bo‘sh</string>
+    <string name="threats_vault_empty_body">Karantinga olingan zararli fayllar shu yerda qulflanadi.</string>
+    <string name="threats_uninstall">O‘chirish</string>
+    <string name="threats_details">Batafsil</string>
+    <string name="threats_quarantine">Karantinga olish</string>
+    <string name="threats_ignore">E’tiborsiz qoldirish</string>
+    <string name="threats_restore">Tiklash</string>
+    <string name="threats_delete">O‘chirish</string>
+    <string name="threats_cancel">Bekor qilish</string>
+    <string name="threats_delete_title">Butunlay o‘chirilsinmi?</string>
+    <string name="threats_delete_body">Fayl karantindan o‘chiriladi. Buni qaytarib bo‘lmaydi.</string>
+    <string name="threats_delete_confirm">O‘chirish</string>
+    <string name="message_quarantined">Fayl karantinga olindi</string>
+    <string name="message_original_kept">Karantinga olindi, lekin asl fayl o‘chirilmadi</string>
+    <string name="message_quarantine_failed">Faylni karantinga olib bo‘lmadi</string>
+    <string name="message_restored">Fayl tiklandi</string>
+    <string name="message_restore_failed">Faylni tiklab bo‘lmadi</string>
+    <string name="message_deleted">Butunlay o‘chirildi</string>
+    <string name="message_uninstalled">Ilova o‘chirildi</string>
+    <string name="message_trusted">Ilova ishonchli deb belgilandi</string>
+    <string name="history_title">Tarix</string>
+    <string name="history_empty">Mos hodisalar yo‘q</string>
+    <string name="history_filter_date">Sana</string>
+    <string name="history_filter_verdict">Natija</string>
+    <string name="history_filter_source">Manba</string>
+    <string name="history_filter_clear">Tozalash</string>
+    <string name="period_day">24 soat</string>
+    <string name="period_week">7 kun</string>
+    <string name="period_month">30 kun</string>
+    <string name="period_all">Hammasi</string>
+    <string name="filter_clean">Xavfsiz</string>
+    <string name="filter_suspicious">Shubhali</string>
+    <string name="filter_malicious">Zararli</string>
+    <string name="back">Orqaga</string>
+    <string name="export">Hisobotni eksport qilish</string>
+    <string name="export_pdf">PDF hisobot</string>
+    <string name="export_json">JSON ma’lumotlar</string>
+    <string name="export_saved">Hisobot saqlandi</string>
+    <string name="export_failed">Hisobotni saqlab bo‘lmadi</string>
+    <string name="export_file_name">blackshield-hisobot-%1$s.%2$s</string>
+    <string name="report_app">BlackShield</string>
+    <string name="report_title">BlackShield xavfsizlik hisoboti</string>
+    <string name="report_generated">Tuzilgan: %1$s</string>
+    <plurals name="report_count">
+        <item quantity="one">%1$d ta hodisa</item>
+        <item quantity="other">%1$d ta hodisa</item>
+    </plurals>
+    <string name="report_event_meta">%1$s · %2$s</string>
+</resources>

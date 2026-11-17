@@ -9,6 +9,8 @@ import androidx.room.withTransaction
 import com.blackshield.core.data.db.AllowListDao
 import com.blackshield.core.data.db.BlackShieldDatabase
 import com.blackshield.core.data.db.BlockedDomainDao
+import com.blackshield.core.data.db.FileThreatDao
+import com.blackshield.core.data.db.HistoryDao
 import com.blackshield.core.data.db.MultiRowSignatureWriter
 import com.blackshield.core.data.db.QuarantineDao
 import com.blackshield.core.data.db.ScanResultDao
@@ -17,6 +19,8 @@ import com.blackshield.core.data.db.SignatureDao
 import com.blackshield.core.data.db.SignatureSyncDao
 import com.blackshield.core.data.db.WebActivityDao
 import com.blackshield.core.data.db.WebAllowListDao
+import com.blackshield.core.data.quarantine.TinkVaultCipher
+import com.blackshield.core.data.quarantine.VaultCipher
 import com.blackshield.core.data.repository.AllowListRepository
 import com.blackshield.core.data.repository.DomainSyncStore
 import com.blackshield.core.data.repository.OfflineAllowListRepository
@@ -78,7 +82,7 @@ internal object DataModule {
         )
 }
 
-/** Web Shield's tables. */
+/** Web Shield, history and quarantine: tables added after the signature store. */
 @Module
 @InstallIn(SingletonComponent::class)
 internal object WebShieldDataModule {
@@ -90,6 +94,17 @@ internal object WebShieldDataModule {
 
     @Provides
     fun provideWebActivityDao(database: BlackShieldDatabase): WebActivityDao = database.webActivityDao()
+
+    @Provides
+    fun provideHistoryDao(database: BlackShieldDatabase): HistoryDao = database.historyDao()
+
+    @Provides
+    fun provideFileThreatDao(database: BlackShieldDatabase): FileThreatDao = database.fileThreatDao()
+
+    /** Created on first use (the vault calls it on a background thread): it touches the Keystore. */
+    @Provides
+    @Singleton
+    fun provideVaultCipher(@ApplicationContext context: Context): VaultCipher = TinkVaultCipher.create(context)
 }
 
 @Module

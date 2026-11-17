@@ -31,9 +31,17 @@ object ManifestParser {
         )
 
     /** @throws ManifestParseException if the data is not a readable binary manifest. */
-    fun parse(bytes: ByteArray): ManifestInfo = Builder().apply {
-        BinaryXmlReader(bytes).events().forEach(::accept)
-    }.build()
+    // Deliberately broad: the safety net must catch whatever a parser bug on hostile input throws.
+    @Suppress("TooGenericExceptionCaught")
+    fun parse(bytes: ByteArray): ManifestInfo = try {
+        Builder().apply { BinaryXmlReader(bytes).events().forEach(::accept) }.build()
+    } catch (e: ManifestParseException) {
+        throw e
+    } catch (e: RuntimeException) {
+        // A malformed file must never crash a scan (that would let malware evade detection): any parser bug on
+        // hostile input (out-of-bounds read, overflow) is reported as an unreadable manifest instead.
+        throw ManifestParseException("malformed manifest (${e.javaClass.simpleName})", e)
+    }
 
     private class Builder {
         private val path = ArrayList<String>()

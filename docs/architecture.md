@@ -33,6 +33,13 @@ Android app                                              backend
 - `:feature:*` modules depend only on `:core:*` modules, never on each other.
 - `:core:*` modules do not depend on features.
 - Shared Gradle configuration lives in `build-logic` convention plugins; versions live in `gradle/libs.versions.toml`.
+- UI building blocks: `:core:designsystem` (theme, colors, components, icons; no data) and `:core:ui` (shared
+  composables over `:core:data` models, such as the history row). Every feature gets `:core:designsystem`.
+- Screens: `:feature:home` (dashboard, security score, onboarding), `:feature:scan`, `:feature:threats` (threats,
+  quarantine, history and its export), `:feature:protection`, `:feature:webshield`, `:feature:settings`. `:feature:home`
+  and `:feature:threats` use the scan, protection and Web Shield controllers; these are the only feature-to-feature
+  dependencies, always toward a feature's public controller, never its screens.
+- `:testing:ui`: helpers for Compose UI tests (theme, accessibility checks, screenshot goldens); test-only.
 
 ### 3.2 Layers
 
@@ -105,12 +112,16 @@ Android app                                              backend
 
 ### 3.6 Persistence
 
-- Room `BlackShieldDatabase` v2 (schemas exported to `core/data/schemas`; `MigrationTest` checks 1→2 against them):
+- Room `BlackShieldDatabase` v4 (schemas exported to `core/data/schemas`; `MigrationTest` checks every step
+  against them):
   - `malware_signatures`: the hash is the primary key, backed by SQLite's automatic unique index. There are no other
     indexes.
   - `signature_algorithms`: the few algorithms in use.
   - `scan_results`: one row per package, with reasons stored as JSON.
-  - `allow_list` and `quarantine`.
+  - `allow_list` and `quarantine` (v1, unused since v4).
+  - v3: Web Shield's `blocked_domains`, `domain_allowlist` and activity log (see 3.10).
+  - v4: `history` (one row per event, indexed by time, kept one year) and `file_threats` (harmful files found, and
+    their quarantine state).
 - Bulk signature imports stream in transactions of 20,000 rows, using multi-row `INSERT` statements. 1M rows import in
   about 22 s on an emulator; see [performance.md](performance.md).
 - Signature sync writes through `SignatureSyncStore`: one transaction per delta or snapshot. Synced rows have
@@ -118,7 +129,7 @@ Android app                                              backend
 - DataStore (Preferences): user settings (`user_preferences`) and sync state (`signature_sync`: version, last
   success and attempt, last error). A corrupted sync-state file is replaced by an empty one, which forces a full
   snapshot.
-- Encryption at rest: _TBD_.
+- Encryption at rest: quarantined files (see 3.11). The rest relies on Android's file-based encryption.
 
 ### 3.7 Networking
 
@@ -244,12 +255,69 @@ An on-device DNS filter built on `VpnService`.
 - **Privacy.** No domain is logged. Counters are aggregates, and the opt-in activity log keeps blocked lookups only,
   for 7 days.
 
+### 3.11 Quarantine, history and the dashboard
+
+- **Quarantine (`QuarantineVault`, `:core:data`).** A harmful APK file is encrypted into app-private storage
+  (`noBackupFilesDir/quarantine/<random UUID>.bsq`), then the original is deleted (a path, or a `content://` document the user
+  picked). Tink streaming AEAD (`AES256_GCM_HKDF_1MB`) encrypts in 1 MiB segments, so large files never sit in memory.
+  The associated data binds each file to its vault name, so files cannot be swapped. The keyset is stored in
+  SharedPreferences, encrypted by an Android Keystore key, and never leaves the device. *Restore* decrypts to a
+  location the user picks with the system file picker. *Delete permanently* removes the encrypted file. If the
+  original cannot be deleted, the file stays in the vault and the user is asked to delete the original. If it cannot
+  be read, nothing changes. Metadata lives in
+  `file_threats`.
+- **Installed apps** cannot be quarantined: without device-owner rights an app cannot disable or remove another one.
+  The Threats screen asks the system to uninstall (`ACTION_DELETE`) and records the outcome when the user returns.
+- **History.** `ScanRecorder` writes every check: full scans, single apps (real-time protection), picked files,
+  quarantine actions and uninstalls. History filters by date, verdict and source, and exports a report (JSON or PDF,
+  see [history-report.md](history-report.md)).
+- **Full scans** run in `ScanSessionManager`, an app-wide singleton, so a scan keeps going when the user changes tabs.
+  Home and Scan both show its progress.
+- **Scheduled scans.** `ScanScheduler` keeps one unique periodic `ScheduledScanWorker` in WorkManager, matching the
+  user's choice: off, daily, weekly (default) or monthly, optionally only while charging (default on) and/or idle,
+  always with battery not low. A change re-enqueues with `UPDATE`. A scan that finds threats posts a notification
+  that opens the Threats screen.
+- **Security score (`SecurityScoring`).** 100 points: real-time protection 25, no open threats 25 (−15 per malicious,
+  −8 per suspicious item), a full scan in the last 7 days 15 (half up to 30 days), definitions updated in the last
+  3 days 15 (half up to 14 days), Web Shield 10, scheduled scans 10. Any malicious item makes the level *At risk*; 85
+  or more is *Protected*; otherwise *Check*. The dashboard lists each missing part with the action that fixes it.
+
+### 3.12 UI, themes, languages and accessibility
+
+- The design system (`BlackShieldTheme`) has a dark theme (near-black surfaces, green accent) and a light one. The
+  user picks System, Light or Dark in Settings. Status colors (safe, caution, danger, info) are theme tokens.
+- Navigation: four tabs (Home, Scan, Threats, Settings) and full-screen pages above them (Web Shield, History,
+  Troubleshooting) with system back. Onboarding runs once, before the tabs.
+- All UI text is in resources: English (default), Uzbek (Latin script) and Russian, with plurals. Per-app language
+  on Android 13+ through `locales_config.xml`.
+- Accessibility: touch targets of at least 48 dp; every icon-only control has a label; status rows and the score ring
+  are single TalkBack items; section titles are headings; scan progress is a polite live region. Compose UI tests
+  run the Accessibility Test Framework on the main screens (see [testing.md](testing.md)).
+
+### 3.13 Release hardening and crash reports
+
+- **Entry points.** The launcher activity is exported, so deep-link extras are honoured only through the
+  non-exported alias `InternalEntry`, which the app's own notifications, tile and VPN settings link target
+  (`AppEntry`). Other apps can open BlackShield but cannot make it show a result.
+- **Integrity.** Release builds check that they are not debuggable and are signed by a trusted certificate
+  (`AppIntegrity`, `BLACKSHIELD_RELEASE_CERT_SHA256`); otherwise only a warning screen is shown and no service starts.
+  A local check only: the backend's options are in [attestation.md](attestation.md).
+- **Logging.** No Timber tree in release builds, and R8 strips log calls.
+- **Native code.** Stack protector, FORTIFY, full RELRO and a non-executable stack for every native target; the
+  GoogleTest suite runs under ASan and UBSan and the YARA/DEX path is fuzzed with libFuzzer (see
+  [testing.md](testing.md)). Fixes to libyara are applied as build-time patches.
+- **Crash reports.** Off by default; the setting is in Settings > Privacy. While it is on, an uncaught exception is
+  written (class names and sanitized frames only) to `noBackupFilesDir/crash-reports`, and `CrashUploadWorker`
+  sends pending reports to `POST /v1/crashes`. Turning it off deletes them. See [privacy.md](privacy.md).
+
 ## 4. Backend
 
 - FastAPI application factory (`app/main.py`), routers in `app/api/`.
 - Settings via pydantic-settings (environment variables / `.env`).
 - SQLAlchemy 2 ORM; Alembic migrations run on container start.
 - Health: `/health` (liveness) and `/health/ready` (database reachability).
+- Metrics: `/metrics` (Prometheus), crash report intake `/v1/crashes`; production deployment, rate limits, indexes
+  and backups in [backend-operations.md](backend-operations.md).
 - API surface, authentication and data model: _TBD_.
 
 ## 5. Security and privacy
@@ -261,9 +329,10 @@ An on-device DNS filter built on `VpnService`.
 ## 6. Build, CI and release
 
 - CI: GitHub Actions (`.github/workflows/android.yml`, `.github/workflows/backend.yml`).
-- Android quality gates: strict lint, detekt, ktlint, unit tests.
+- Android quality gates: strict lint, detekt, ktlint, unit tests. Device tests (Compose UI with accessibility
+  checks, screenshot goldens, end-to-end flows): see [testing.md](testing.md).
 - Backend quality gates: ruff, pytest, docker compose smoke test.
-- Release signing, versioning and distribution: _TBD_.
+- Release signing, versioning and distribution: [release.md](release.md) (tag-triggered `release.yml`).
 
 ## 7. Decision log
 
@@ -287,4 +356,7 @@ An on-device DNS filter built on `VpnService`.
 | 2026-11-14 | NXDOMAIN without SOA for blocked names | Works for every record type and is not cached, so "Allow once" takes effect at once. |
 | 2026-11-14 | Domain delta from version 0 instead of a snapshot endpoint | Domain lists are small (tens of thousands); one protocol, no NDJSON stream to maintain. |
 | 2026-11-14 | Never-block list on the backend | DNS blocks whole hosts; phishing on shared platforms must not take down Google Docs or GitHub Pages. |
+| 2026-11-14 | Quarantine with Tink streaming AEAD, keyset wrapped by Android Keystore | Jetpack Security is deprecated; streaming keeps memory flat for large APKs; the key cannot be exported. |
+| 2026-11-14 | Installed-app "quarantine" means guided uninstall | Without device owner, apps cannot disable or remove other apps. |
+| 2026-11-14 | Screenshot tests on the device, goldens per module, skipped on other screen sizes | No JVM renderer supports SDK 37 yet; the reference emulator gives the real rendering. |
 | 2026-11-14 | YARA matches scored as risk rules (critical +100) | One explanation model for every deduction; a critical match is malicious even from Play, while system and known-good apps stay exempt. |

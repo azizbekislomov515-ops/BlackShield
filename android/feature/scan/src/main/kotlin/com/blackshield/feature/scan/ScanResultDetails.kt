@@ -6,13 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.blackshield.core.data.model.ScanReason
 import com.blackshield.core.data.model.ScanResult
 import com.blackshield.core.data.model.Verdict
+import com.blackshield.core.designsystem.component.StatusChip
+import com.blackshield.core.designsystem.theme.BsTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -32,23 +32,14 @@ import java.time.format.FormatStyle
 
 @Composable
 fun VerdictChip(verdict: Verdict, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val (label, container, content) =
+    val status = BsTheme.status
+    val (label, color) =
         when (verdict) {
-            Verdict.CLEAN -> Triple(R.string.verdict_clean, colors.secondaryContainer, colors.onSecondaryContainer)
-
-            Verdict.SUSPICIOUS ->
-                Triple(R.string.verdict_suspicious, colors.tertiaryContainer, colors.onTertiaryContainer)
-
-            Verdict.MALICIOUS -> Triple(R.string.verdict_malicious, colors.errorContainer, colors.onErrorContainer)
+            Verdict.CLEAN -> R.string.verdict_clean to status.safe
+            Verdict.SUSPICIOUS -> R.string.verdict_suspicious to status.caution
+            Verdict.MALICIOUS -> R.string.verdict_malicious to status.danger
         }
-    Surface(color = container, contentColor = content, shape = RoundedCornerShape(8.dp), modifier = modifier) {
-        Text(
-            text = stringResource(label),
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-    }
+    StatusChip(stringResource(label), color, modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

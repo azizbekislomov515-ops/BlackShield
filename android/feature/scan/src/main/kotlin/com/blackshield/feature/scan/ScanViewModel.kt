@@ -1,18 +1,24 @@
 package com.blackshield.feature.scan
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackshield.core.data.model.ScanResult
 import com.blackshield.core.data.model.Verdict
+import com.blackshield.core.data.quarantine.QuarantineOutcome
+import com.blackshield.core.data.quarantine.QuarantineVault
 import com.blackshield.core.data.repository.AllowListRepository
 import com.blackshield.core.data.repository.ScanResultRepository
-import com.blackshield.core.scanner.apps.InstalledAppScanner
-import com.blackshield.core.scanner.apps.ScanControl
-import com.blackshield.core.scanner.apps.ScanProgress
+import com.blackshield.core.scanner.ScanRecorder
+import com.blackshield.core.scanner.files.ApkCandidate
+import com.blackshield.core.scanner.files.ApkFileScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,14 +28,20 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-sealed interface ScanStatus {
-    data object Idle : ScanStatus
-
-    data class Running(val scanned: Int, val total: Int, val currentApp: String?, val paused: Boolean) : ScanStatus
-
-    data class Finished(val total: Int, val malicious: Int, val suspicious: Int, val durationMillis: Long) :
-        ScanStatus
+/** The outcome of scanning one APK file the user picked. */
+data class FileScanUi(
+    val name: String,
+    val verdict: Verdict? = null,
+    val riskScore: Int = 0,
+    val topReason: String = "",
+    /** Set for a harmful file: its entry in the Threats list. */
+    val threatId: Long? = null,
+    val quarantine: QuarantineOutcome? = null,
+    val unreadable: Boolean = false
+) {
+    val scanning: Boolean get() = verdict == null && !unreadable
 }
 
 data class ScanUiState(
@@ -37,21 +49,24 @@ data class ScanUiState(
     val results: List<ScanResult> = emptyList(),
     val trustedPackages: Set<String> = emptySet(),
     val status: ScanStatus = ScanStatus.Idle,
-    val selected: ScanResult? = null
+    val selected: ScanResult? = null,
+    val fileScan: FileScanUi? = null
 )
 
 @HiltViewModel
 class ScanViewModel
 @Inject
 constructor(
-    private val scanner: InstalledAppScanner,
+    @param:ApplicationContext private val context: Context,
+    private val scans: ScanSessionManager,
     scanResults: ScanResultRepository,
-    private val allowList: AllowListRepository
+    private val allowList: AllowListRepository,
+    private val fileScanner: ApkFileScanner,
+    private val recorder: ScanRecorder,
+    private val vault: QuarantineVault
 ) : ViewModel() {
-    private val status = MutableStateFlow<ScanStatus>(ScanStatus.Idle)
     private val selectedPackage = MutableStateFlow<String?>(null)
-    private var scanJob: Job? = null
-    private var control: ScanControl? = null
+    private val fileScan = MutableStateFlow<FileScanUi?>(null)
 
     // During a scan the database changes once per app (hundreds of times). Sorting runs off the
     // main thread, and list/progress updates are throttled so the UI recomposes a few times
@@ -63,66 +78,30 @@ constructor(
                 .map { it.sortedWith(SEVERITY_ORDER) }
                 .throttleLatest(RESULTS_THROTTLE_MILLIS),
             allowList.observeAllowedPackages(),
-            status.throttleLatest(STATUS_THROTTLE_MILLIS),
-            selectedPackage
-        ) { results, trusted, status, selected ->
+            scans.status.throttleLatest(STATUS_THROTTLE_MILLIS),
+            selectedPackage,
+            fileScan
+        ) { results, trusted, status, selected, file ->
             ScanUiState(
                 results = results,
                 trustedPackages = trusted,
                 status = status,
-                selected = results.firstOrNull { it.packageName == selected }
+                selected = results.firstOrNull { it.packageName == selected },
+                fileScan = file
             )
         }.flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), ScanUiState())
 
     fun startScan() {
-        if (scanJob?.isActive == true) return
-        val scanControl = ScanControl().also { control = it }
-        scanJob =
-            viewModelScope.launch {
-                scanner.scan(scanControl).collect { progress ->
-                    status.value =
-                        when (progress) {
-                            is ScanProgress.Started ->
-                                ScanStatus.Running(0, progress.total, null, scanControl.isPaused.value)
-
-                            is ScanProgress.AppScanned ->
-                                ScanStatus.Running(
-                                    progress.scanned,
-                                    progress.total,
-                                    progress.result.appLabel,
-                                    scanControl.isPaused.value
-                                )
-
-                            is ScanProgress.Completed ->
-                                ScanStatus.Finished(
-                                    progress.total,
-                                    progress.malicious,
-                                    progress.suspicious,
-                                    progress.durationMillis
-                                )
-                        }
-                }
-            }
+        scans.start()
     }
 
-    fun pause() {
-        control?.pause()
-        status.update { (it as? ScanStatus.Running)?.copy(paused = true) ?: it }
-    }
+    fun pause() = scans.pause()
 
-    fun resume() {
-        control?.resume()
-        status.update { (it as? ScanStatus.Running)?.copy(paused = false) ?: it }
-    }
+    fun resume() = scans.resume()
 
     /** Stops the scan; results saved so far stay. */
-    fun cancel() {
-        scanJob?.cancel()
-        scanJob = null
-        control = null
-        status.value = ScanStatus.Idle
-    }
+    fun cancel() = scans.cancel()
 
     fun showDetails(packageName: String) {
         selectedPackage.value = packageName
@@ -137,6 +116,47 @@ constructor(
         viewModelScope.launch {
             if (trusted) allowList.allow(packageName) else allowList.remove(packageName)
         }
+    }
+
+    /** Scans an APK file picked with the system file picker. */
+    fun scanFile(uri: Uri) {
+        viewModelScope.launch {
+            // Keep access for a later quarantine from the Threats screen, where the provider allows it.
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            val candidate = withContext(Dispatchers.IO) { candidateFor(context, uri) }
+            if (candidate == null) {
+                fileScan.value = FileScanUi(name = uri.lastPathSegment.orEmpty(), unreadable = true)
+                return@launch
+            }
+            fileScan.value = FileScanUi(name = candidate.displayName)
+            val result = fileScanner.scan(candidate)
+            val threatId = recorder.recordFile(result)
+            fileScan.value =
+                FileScanUi(
+                    name = candidate.displayName,
+                    verdict = result.verdict,
+                    riskScore = result.riskScore,
+                    topReason = result.reasons.filter { it.points > 0 }.maxByOrNull { it.points }?.detail.orEmpty(),
+                    threatId = threatId
+                )
+        }
+    }
+
+    fun quarantineScannedFile() {
+        val id = fileScan.value?.threatId ?: return
+        viewModelScope.launch {
+            val outcome = vault.quarantine(id)
+            fileScan.update { it?.copy(quarantine = outcome) }
+        }
+    }
+
+    fun dismissFileScan() {
+        fileScan.value = null
     }
 
     private companion object {
@@ -154,3 +174,22 @@ constructor(
             }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.appLabel }
     }
 }
+
+/** Name and size of a file picked with the system picker; null if the provider does not answer. */
+internal fun candidateFor(context: Context, uri: Uri): ApkCandidate? = runCatching {
+    context.contentResolver.query(
+        uri,
+        arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+        null,
+        null,
+        null
+    )?.use { cursor ->
+        if (!cursor.moveToFirst()) return@use null
+        ApkCandidate(
+            displayName = cursor.getString(0) ?: uri.lastPathSegment.orEmpty(),
+            uri = uri.toString(),
+            size = if (cursor.isNull(1)) 0 else cursor.getLong(1),
+            lastModified = System.currentTimeMillis()
+        )
+    }
+}.getOrNull()

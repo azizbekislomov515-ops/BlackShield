@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_meta">%1$s · %2$s</string>
+    <plurals name="history_scan_clean">
+        <item quantity="one">Проверка: %1$d приложение, угроз нет</item>
+        <item quantity="few">Проверка: %1$d приложения, угроз нет</item>
+        <item quantity="many">Проверка: %1$d приложений, угроз нет</item>
+        <item quantity="other">Проверка: %1$d приложений, угроз нет</item>
+    </plurals>
+    <plurals name="history_scan_threats">
+        <item quantity="one">Проверка: найдена %1$d угроза</item>
+        <item quantity="few">Проверка: найдено %1$d угрозы</item>
+        <item quantity="many">Проверка: найдено %1$d угроз</item>
+        <item quantity="other">Проверка: найдено %1$d угроз</item>
+    </plurals>
+    <string name="history_checked">%1$s: %2$s</string>
+    <string name="history_quarantined">В карантине: %1$s</string>
+    <string name="history_restored">Восстановлено: %1$s</string>
+    <string name="history_deleted">Удалено: %1$s</string>
+    <string name="history_uninstalled">Удалено приложение: %1$s</string>
+    <string name="ui_verdict_clean">безопасно</string>
+    <string name="ui_verdict_suspicious">подозрительно</string>
+    <string name="ui_verdict_malicious">вредоносно</string>
+    <string name="source_manual">Вручную</string>
+    <string name="source_scheduled">По расписанию</string>
+    <string name="source_real_time">В реальном времени</string>
+    <string name="source_file">Файл</string>
+</resources>

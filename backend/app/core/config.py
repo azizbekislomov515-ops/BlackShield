@@ -27,17 +27,26 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = True
 
-    # OpenAPI UI (/docs, /redoc, /openapi.json).
+    # OpenAPI UI (/docs, /redoc, /openapi.json). Off in production (docker-compose.prod.yml).
     docs_enabled: bool = True
+
+    # Prometheus metrics at /metrics. With a token, scrapers must send "Authorization: Bearer
+    # <token>".
+    metrics_enabled: bool = True
+    metrics_token: SecretStr | None = None
 
     # --- /v1 security --------------------------------------------------------------------------
     # Comma-separated "key_id:sha256_hex_of_key" pairs. Only hashes are configured, never keys.
     # Generate an entry with `blackshield-signatures generate-api-key --id android-v1`.
     # Empty means every /v1 request is rejected (fail closed).
     api_keys: str = ""
-    # Token bucket per (API key, client IP): sustained rate and burst size.
-    rate_limit_per_minute: int = Field(default=120, ge=1)
-    rate_limit_burst: int = Field(default=30, ge=1)
+    # Token bucket per (API key, client IP): sustained rate and burst size. One app key is shared by
+    # every install, and mobile carriers put thousands of phones behind one IP (CGNAT). A phone
+    # makes a handful of requests per sync (every 6 h) plus at most a few delta pages, so 600/min
+    # with a burst of 120 serves a few thousand phones per IP while still stopping a scraper. Nginx
+    # limits each IP at the edge as well. See docs/backend-operations.md#rate-limits.
+    rate_limit_per_minute: int = Field(default=600, ge=1)
+    rate_limit_burst: int = Field(default=120, ge=1)
     # Requests with a missing or wrong key, per client IP.
     auth_failure_limit_per_minute: int = Field(default=10, ge=1)
     # Hard cap on request bodies (100 SHA-256 hashes in JSON are ~7 KiB).

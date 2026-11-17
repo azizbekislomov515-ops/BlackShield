@@ -31,6 +31,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.api.v1.crashes import prune_crash_reports
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.core.security import generate_api_key, hash_api_key
@@ -129,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     d_remove = sub.add_parser("domains-remove", help="stop blocking domains (false positives)")
     d_remove.add_argument("domains", nargs="+")
     sub.add_parser("domains-status", help="print the latest domain-list version")
+    sub.add_parser("crashes-prune", help="delete crash reports older than 90 days (run daily)")
     return parser
 
 
@@ -176,6 +178,8 @@ def main(argv: Sequence[str] | None = None, *, engine: Engine | None = None) -> 
             return _domains_remove(engine, args.domains)
         if args.command == "domains-status":
             return _domains_status(engine)
+        if args.command == "crashes-prune":
+            return _crashes_prune(engine)
     except MalwareBazaarError as exc:
         logger.error("malwarebazaar ingest failed", extra={"error": str(exc)})
         return 1
@@ -471,6 +475,13 @@ def _domains_status(engine: Engine) -> int:
                 "count": latest.count if latest else 0,
             }
         )
+    return 0
+
+
+def _crashes_prune(engine: Engine) -> int:
+    with Session(engine) as db:
+        deleted = prune_crash_reports(db)
+    _print({"deleted": deleted})
     return 0
 
 

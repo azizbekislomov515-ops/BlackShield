@@ -175,3 +175,26 @@ Idle cost: none. The interface thread sleeps in `poll()`, and counters are writt
 
 **Still to do:** measure lookup latency (forwarded vs direct) on a physical phone, and battery over a day of
 normal browsing.
+
+## Release build (R8) — 2026-11-14
+
+`benchmark` variant (release configuration: R8, not debuggable, debug-signed) on the `blackshield_api37` emulator
+(x86_64, Android 17 preview image, host Windows 11). Emulator numbers: compare releases with each other, not with
+phones. Reproduce with `./gradlew :app:assembleBenchmark`, then the `adb` commands below.
+
+| Measure | Result | How |
+| --- | --- | --- |
+| APK size | 3.1 MB (debug: 17 MB) | `app-benchmark.apk`, 3 ABIs |
+| Cold start (after `am force-stop`) | 442–1005 ms (3 runs, median 752 ms) | `am start -W`, `TotalTime` |
+| Full scan, 261 installed apps | ≈ 25 s (upper bound: includes UI polling) | Tap "Scan now" until "Scan again" |
+| Memory, home screen | 42 MB PSS | `dumpsys meminfo` |
+| Memory, peak during full scan | 61 MB PSS (Java heap 14 MB, native heap 24 MB after the scan) | `dumpsys meminfo` sampled ~1/s |
+| Real-time protection idle, screen off | 20 ms CPU in 120 s (≈ 0.02 % of one core) | `/proc/<pid>/stat` utime + stime |
+| Wake locks, 7.5 min with protection on and one scan | Only WorkManager's job lock: 18 ms (signature sync, 4 runs) | `dumpsys batterystats --charged` |
+| Alarms / wakeups by the app | None | `dumpsys batterystats` |
+
+Battery: the emulator's power profile reports 0 mAh, so energy is judged by CPU time and wakeups above. The
+protection service holds no wake lock and wakes the CPU only for package broadcasts and WorkManager jobs (sync every
+6 h, the scheduled scan with its charging/idle constraints). On a phone, check with Battery Historian
+(`adb bugreport`) over a day with protection on; the release checklist ([release.md](release.md)) includes Android
+vitals.

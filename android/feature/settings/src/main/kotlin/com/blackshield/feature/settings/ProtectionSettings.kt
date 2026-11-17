@@ -39,6 +39,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.blackshield.core.designsystem.R as DsR
+import com.blackshield.core.designsystem.component.ListRow
+import com.blackshield.core.designsystem.component.SwitchRow as BsSwitchRow
 import timber.log.Timber
 
 /** Real-time protection settings. Each permission is explained before it is requested. */
@@ -72,9 +75,11 @@ private fun ProtectionRows(enabled: Boolean, resumes: Int, onChange: (Boolean) -
             request.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    SwitchRow(
+    BsSwitchRow(
         title = stringResource(R.string.settings_real_time_protection),
-        summary = stringResource(R.string.settings_real_time_protection_summary),
+        subtitle = stringResource(R.string.settings_real_time_protection_summary),
+        icon = DsR.drawable.bs_ic_bolt,
+        testTag = "realTimeProtection",
         checked = enabled,
         onCheckedChange = { on ->
             onChange(on)
@@ -116,9 +121,11 @@ private fun DownloadsRows(watch: Boolean, resumes: Int, onChange: (Boolean) -> U
             requestRead.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
     }
-    SwitchRow(
+    BsSwitchRow(
         title = stringResource(R.string.settings_watch_downloads),
-        summary = stringResource(R.string.settings_watch_downloads_summary),
+        subtitle = stringResource(R.string.settings_watch_downloads_summary),
+        icon = DsR.drawable.bs_ic_download,
+        testTag = "watchDownloads",
         checked = watch,
         onCheckedChange = { on ->
             onChange(on)
@@ -172,13 +179,14 @@ private fun FolderRows(
             context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             onAdded(uri.toString())
         }
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_watched_folders)) },
-        supportingContent = { Text(stringResource(R.string.settings_watched_folders_summary)) }
+    ListRow(
+        title = stringResource(R.string.settings_watched_folders),
+        subtitle = stringResource(R.string.settings_watched_folders_summary),
+        icon = DsR.drawable.bs_ic_file
     )
     folders.forEach { folder ->
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(folderName(folder), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -208,7 +216,9 @@ private fun FolderRows(
 
 @Composable
 private fun WarningRow(text: String, action: String, tag: String, onAction: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag(tag)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, top = 0.dp, bottom = 4.dp).testTag(tag)
+    ) {
         Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
         TextButton(onClick = onAction) { Text(action) }
     }

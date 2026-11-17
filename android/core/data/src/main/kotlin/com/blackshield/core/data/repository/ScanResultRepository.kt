@@ -16,6 +16,9 @@ interface ScanResultRepository {
 
     /** Removes results for packages not in [installed] (apps uninstalled since the last scan). */
     suspend fun retainOnly(installed: Set<String>)
+
+    /** Forgets one app's result (it was uninstalled). */
+    suspend fun delete(packageName: String)
 }
 
 internal class OfflineScanResultRepository
@@ -32,4 +35,6 @@ constructor(private val dao: ScanResultDao) :
         val stale = dao.packageNames().filterNot { it in installed }
         stale.chunked(SignatureDao.SQLITE_MAX_VARIABLES).forEach { dao.delete(it) }
     }
+
+    override suspend fun delete(packageName: String) = dao.delete(listOf(packageName))
 }

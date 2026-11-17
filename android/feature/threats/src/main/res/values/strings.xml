@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="threats_title">Threats</string>
+    <string name="threats_history">History</string>
+    <string name="threats_none">No threats</string>
+    <string name="threats_none_body">Nothing needs your attention.</string>
+    <plurals name="threats_count">
+        <item quantity="one">%1$d threat</item>
+        <item quantity="other">%1$d threats</item>
+    </plurals>
+    <string name="threats_count_body">Remove them to stay safe.</string>
+    <string name="threats_apps">Apps</string>
+    <string name="threats_files">Files</string>
+    <string name="threats_vault">Quarantine</string>
+    <string name="threats_vault_encrypted">Encrypted</string>
+    <string name="threats_file_meta">%1$s · %2$s</string>
+    <string name="threats_vault_empty">Quarantine is empty</string>
+    <string name="threats_vault_empty_body">Harmful files you quarantine are locked here.</string>
+    <string name="threats_uninstall">Uninstall</string>
+    <string name="threats_details">Details</string>
+    <string name="threats_quarantine">Quarantine</string>
+    <string name="threats_ignore">Ignore</string>
+    <string name="threats_restore">Restore</string>
+    <string name="threats_delete">Delete</string>
+    <string name="threats_cancel">Cancel</string>
+    <string name="threats_delete_title">Delete permanently?</string>
+    <string name="threats_delete_body">The file is erased from quarantine. This cannot be undone.</string>
+    <string name="threats_delete_confirm">Delete</string>
+    <string name="message_quarantined">File quarantined</string>
+    <string name="message_original_kept">Quarantined, but the original could not be deleted</string>
+    <string name="message_quarantine_failed">Could not quarantine the file</string>
+    <string name="message_restored">File restored</string>
+    <string name="message_restore_failed">Could not restore the file</string>
+    <string name="message_deleted">Deleted permanently</string>
+    <string name="message_uninstalled">App uninstalled</string>
+    <string name="message_trusted">App trusted</string>
+    <string name="history_title">History</string>
+    <string name="history_empty">No matching events</string>
+    <string name="history_filter_date">Date</string>
+    <string name="history_filter_verdict">Result</string>
+    <string name="history_filter_source">Source</string>
+    <string name="history_filter_clear">Clear</string>
+    <string name="period_day">24 h</string>
+    <string name="period_week">7 days</string>
+    <string name="period_month">30 days</string>
+    <string name="period_all">All</string>
+    <string name="filter_clean">Clean</string>
+    <string name="filter_suspicious">Suspicious</string>
+    <string name="filter_malicious">Malicious</string>
+    <string name="back">Back</string>
+    <string name="export">Export report</string>
+    <string name="export_pdf">PDF report</string>
+    <string name="export_json">JSON data</string>
+    <string name="export_saved">Report saved</string>
+    <string name="export_failed">Could not save the report</string>
+    <string name="export_file_name">blackshield-report-%1$s.%2$s</string>
+    <string name="report_app">BlackShield</string>
+    <string name="report_title">BlackShield security report</string>
+    <string name="report_generated">Generated %1$s</string>
+    <plurals name="report_count">
+        <item quantity="one">%1$d event</item>
+        <item quantity="other">%1$d events</item>
+    </plurals>
+    <string name="report_event_meta">%1$s · %2$s</string>
+</resources>

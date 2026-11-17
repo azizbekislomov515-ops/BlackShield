@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Notification channels -->
+    <string name="channel_status_name">Статус защиты</string>
+    <string name="channel_status_description">Показывает, что защита в реальном времени работает.</string>
+    <string name="channel_threats_name">Предупреждения об угрозах</string>
+    <string name="channel_threats_description">Опасные или подозрительные приложения и APK-файлы.</string>
+
+    <!-- Status notification -->
+    <string name="status_title">Защита в реальном времени включена</string>
+    <string name="status_text_apps">Проверяются новые и обновлённые приложения</string>
+    <string name="status_text_files">Проверяются новые приложения и загрузки APK</string>
+    <string name="action_turn_off">Выключить</string>
+
+    <!-- Threat notifications -->
+    <string name="threat_title_malicious">%1$s опасно</string>
+    <string name="threat_title_suspicious">%1$s выглядит подозрительно</string>
+    <string name="threat_text_app">Проверено при установке.</string>
+    <string name="threat_text_file">Найдено в %1$s. Не устанавливайте.</string>
+    <string name="action_uninstall">Удалить</string>
+    <string name="action_ignore">Игнорировать</string>
+    <string name="action_details">Подробнее</string>
+
+    <!-- Troubleshooting -->
+    <string name="troubleshooting_title">Устранение неполадок</string>
+    <string name="troubleshooting_back">Назад</string>
+    <string name="troubleshooting_intro">Некоторые настройки и производители телефонов останавливают фоновые приложения. Здесь это проверяется.</string>
+    <string name="troubleshooting_all_good">Всё в порядке. Защита может работать.</string>
+    <string name="issue_protection_off_title">Защита в реальном времени выключена</string>
+    <string name="issue_protection_off_body">Новые приложения и загрузки не проверяются.</string>
+    <string name="issue_not_running_title">Защита не работает</string>
+    <string name="issue_not_running_body">Система остановила её. Перезапустите и проверьте пункты ниже.</string>
+    <string name="issue_notifications_title">Уведомления заблокированы</string>
+    <string name="issue_notifications_body">Предупреждения не дойдут до вас.</string>
+    <string name="issue_threat_channel_title">Предупреждения об угрозах выключены</string>
+    <string name="issue_threat_channel_body">Включите категорию «Предупреждения об угрозах».</string>
+    <string name="issue_background_title">Фоновая работа ограничена</string>
+    <string name="issue_background_body">В «О приложении» &gt; «Батарея» выберите «Без ограничений» или «Оптимизировано».</string>
+    <string name="issue_battery_title">Оптимизация батареи включена</string>
+    <string name="issue_battery_body">Выберите BlackShield и «Не оптимизировать». Защита почти не тратит заряд.</string>
+    <string name="issue_bucket_title">Android считает, что BlackShield используется редко</string>
+    <string name="issue_bucket_body">Иногда открывайте приложение или снимите фоновые ограничения в «О приложении».</string>
+    <string name="issue_downloads_title">Загрузки нельзя проверить</string>
+    <string name="issue_downloads_body">Разрешите «Доступ ко всем файлам», чтобы BlackShield видел «Загрузки».</string>
+    <string name="issue_oem_title">Телефон может останавливать фоновые приложения</string>
+    <string name="oem_xiaomi">Xiaomi, Redmi, POCO: включите автозапуск и выберите «Нет ограничений» в экономии заряда.</string>
+    <string name="oem_huawei">Huawei, Honor: в «Запуске приложений» выберите «Управлять вручную» и включите все пункты.</string>
+    <string name="oem_samsung">Samsung: уберите BlackShield из «Спящих приложений» и добавьте в «Никогда не засыпающие».</string>
+    <string name="oem_oneplus">OnePlus: разрешите автозапуск и выберите «Не оптимизировать».</string>
+    <string name="oem_oppo">OPPO, realme: разрешите автозапуск и работу в фоне.</string>
+    <string name="oem_vivo">vivo, iQOO: разрешите фоновый запуск и высокое потребление в фоне.</string>
+    <string name="fix_enable">Включить</string>
+    <string name="fix_restart">Перезапустить защиту</string>
+    <string name="fix_notifications">Настройки уведомлений</string>
+    <string name="fix_battery">Оптимизация батареи</string>
+    <string name="fix_app_settings">О приложении</string>
+    <string name="fix_all_files">Разрешить доступ ко всем файлам</string>
+    <string name="fix_oem">Открыть настройки телефона</string>
+</resources>

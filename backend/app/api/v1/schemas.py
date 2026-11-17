@@ -109,3 +109,38 @@ class DomainDeltaResponse(BaseModel):
     next_cursor: str | None = Field(
         description="Pass as `cursor` (with the same `since`) for the next page; null when done."
     )
+
+
+# --- Crash reports -------------------------------------------------------------------------------
+# Strict shapes so a report can only carry what the privacy policy promises: class names and stack
+# frames such as "com.blackshield.app.a.b(SourceFile:12)". Exception messages are never accepted.
+JavaClassName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z_$][A-Za-z0-9_$.]{0,199}$")]
+StackFrame = Annotated[
+    str,
+    StringConstraints(pattern=r"^[A-Za-z0-9_$.<>-]{1,200}\([A-Za-z0-9_$. -]{0,100}(:\d{1,7})?\)$"),
+]
+MAX_CRASH_FRAMES = 64
+MAX_CAUSES = 8
+
+
+class CrashReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    app_version: str = Field(pattern=r"^\d{1,3}\.\d{1,3}\.\d{1,3}$", examples=["1.0.0"])
+    version_code: int = Field(ge=1, le=2_000_000_000)
+    android_sdk: int = Field(ge=21, le=100)
+    occurred_at: datetime
+    exceptions: list[JavaClassName] = Field(
+        min_length=1,
+        max_length=MAX_CAUSES,
+        description="Exception classes, outermost first, then each cause.",
+    )
+    frames: list[StackFrame] = Field(
+        min_length=1,
+        max_length=MAX_CRASH_FRAMES,
+        description="Stack frames of the root cause, top first.",
+    )
+
+
+class CrashReportResponse(BaseModel):
+    accepted: Literal[True] = True

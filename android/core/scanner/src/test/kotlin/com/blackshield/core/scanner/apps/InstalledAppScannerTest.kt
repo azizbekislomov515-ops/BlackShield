@@ -418,6 +418,10 @@ class InstalledAppScannerTest {
             saved.keys.retainAll(installed)
         }
 
+        override suspend fun delete(packageName: String) {
+            saved.remove(packageName)
+        }
+
         override suspend fun find(packageName: String) = saved[packageName]
     }
 

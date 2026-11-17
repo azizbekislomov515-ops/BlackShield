@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.Build
+import com.blackshield.core.data.AppEntry
 import com.blackshield.core.data.model.DomainCategory
 import com.blackshield.core.data.model.WebActivityEntry
 import com.blackshield.core.data.prefs.UserPreferencesRepository
@@ -128,9 +129,9 @@ class WebShieldVpnService : VpnService() {
                 // Our own traffic (forwarded queries, signature sync) uses the real network directly.
                 .addDisallowedApplication(packageName)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false) // follow the real network
-        packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
-            builder.setConfigureIntent(PendingIntent.getActivity(this, 0, launch, PendingIntent.FLAG_IMMUTABLE))
-        }
+        builder.setConfigureIntent(
+            PendingIntent.getActivity(this, 0, AppEntry.intent(this), PendingIntent.FLAG_IMMUTABLE)
+        )
         return builder
     }
 

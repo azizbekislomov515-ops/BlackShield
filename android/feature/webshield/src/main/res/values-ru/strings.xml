@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="webshield_title">Веб-щит</string>
+    <string name="webshield_summary">Блокирует вредоносные и фишинговые сайты во всех приложениях.</string>
+    <string name="webshield_switch">Веб-щит</string>
+    <string name="webshield_status_off">Выключен</string>
+    <string name="webshield_status_starting">Запуск…</string>
+    <string name="webshield_status_on">Включён: проверяется каждый запрос сайта</string>
+    <string name="webshield_status_no_permission">Выключен: нужно разрешение VPN</string>
+    <string name="webshield_status_revoked">Выключен: запущен другой VPN</string>
+    <string name="webshield_status_failed">Выключен: Android отклонил VPN. Возможно, другое приложение — постоянный VPN.</string>
+    <string name="webshield_always_on">Установлен постоянным VPN.</string>
+    <string name="webshield_onboarding_title">Зачем VPN?</string>
+    <string name="webshield_onboarding_body">Android позволяет приложению видеть запросы сайтов только через VPN. Веб-щит использует его для одного: сверяет каждый сайт со списком опасных прямо на телефоне.
+
+• Через него идут только запросы (DNS). Сами сайты открываются напрямую.
+• Ничего не отправляется на VPN-сервер.
+• История посещений не хранится, только число заблокированных сайтов.
+
+Пока Веб-щит включён, видна иконка ключа.</string>
+    <string name="webshield_onboarding_continue">Продолжить</string>
+    <string name="webshield_onboarding_cancel">Не сейчас</string>
+    <string name="webshield_warning_private_dns">Частный DNS (%1$s) обходит Веб-щит. Выберите «Автоматически» или «Отключено».</string>
+    <string name="webshield_warning_no_network">Нет сети: запросы возобновятся, когда появится связь.</string>
+    <string name="webshield_open_settings">Открыть настройки</string>
+    <string name="webshield_turn_on_again">Включить снова</string>
+    <string name="webshield_note_browsers">Браузеры со своим защищённым DNS обходят Веб-щит.</string>
+    <string name="webshield_stats_title">Заблокировано</string>
+    <string name="webshield_stats_today">Сегодня</string>
+    <string name="webshield_stats_week">7 дней</string>
+    <string name="webshield_stats_total">Всего</string>
+    <string name="webshield_stats_split">Вредоносные: %1$d · Фишинг: %2$d</string>
+    <string name="webshield_list_title">Список блокировки</string>
+    <plurals name="webshield_list_count">
+        <item quantity="one">%1$d домен</item>
+        <item quantity="few">%1$d домена</item>
+        <item quantity="many">%1$d доменов</item>
+        <item quantity="other">%1$d доменов</item>
+    </plurals>
+    <string name="webshield_list_updated">Обновлено %1$s</string>
+    <string name="webshield_list_never">Появится при следующем обновлении базы.</string>
+    <string name="webshield_notify">Сообщать о блокировке сайта</string>
+    <string name="webshield_notify_summary">С кнопкой «Разрешить один раз»</string>
+    <string name="webshield_activity">Журнал событий</string>
+    <string name="webshield_activity_summary">Хранит заблокированные сайты на телефоне 7 дней. Посещённые сайты не записываются.</string>
+    <string name="webshield_activity_empty">Заблокированных сайтов пока нет.</string>
+    <string name="webshield_activity_clear">Очистить журнал</string>
+    <string name="webshield_allow_title">Всегда разрешены</string>
+    <string name="webshield_allow_summary">Никогда не блокируются, вместе с поддоменами.</string>
+    <string name="webshield_allow_hint">example.com</string>
+    <string name="webshield_allow_add">Разрешить</string>
+    <string name="webshield_allow_remove">Убрать</string>
+    <string name="webshield_allow_invalid">Введите домен, например example.com</string>
+    <string name="webshield_channel_blocked">Заблокированные сайты</string>
+    <string name="webshield_channel_blocked_description">Заблокирован известный вредоносный или фишинговый сайт.</string>
+    <string name="webshield_channel_status">Статус Веб-щита</string>
+    <string name="webshield_blocked_malware">Заблокирован вредоносный сайт</string>
+    <string name="webshield_blocked_phishing">Заблокирован фишинговый сайт</string>
+    <string name="webshield_blocked_body">%1$s в списке опасных сайтов. Если доверяете ему, разрешите.</string>
+    <string name="webshield_allow_once">Разрешить один раз</string>
+    <string name="webshield_always_allow">Разрешать всегда</string>
+    <string name="webshield_revoked_title">Веб-щит выключен</string>
+    <string name="webshield_revoked_body">Запущен другой VPN или VPN отключён. Откройте BlackShield, чтобы включить.</string>
+    <string name="webshield_vpn_session">BlackShield Веб-щит</string>
+    <string name="webshield_tile_label">Веб-щит</string>
+    <string name="webshield_tile_on">Вкл</string>
+    <string name="webshield_tile_off">Выкл</string>
+    <string name="webshield_tile_starting">Запуск</string>
+</resources>

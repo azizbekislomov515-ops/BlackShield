@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_meta">%1$s · %2$s</string>
+    <plurals name="history_scan_clean">
+        <item quantity="one">Tekshiruv: %1$d ilova, tahdid yo‘q</item>
+        <item quantity="other">Tekshiruv: %1$d ilova, tahdid yo‘q</item>
+    </plurals>
+    <plurals name="history_scan_threats">
+        <item quantity="one">Tekshiruv: %1$d tahdid topildi</item>
+        <item quantity="other">Tekshiruv: %1$d tahdid topildi</item>
+    </plurals>
+    <string name="history_checked">%1$s: %2$s</string>
+    <string name="history_quarantined">Karantinga olindi: %1$s</string>
+    <string name="history_restored">Tiklandi: %1$s</string>
+    <string name="history_deleted">O‘chirildi: %1$s</string>
+    <string name="history_uninstalled">O‘chirib tashlandi: %1$s</string>
+    <string name="ui_verdict_clean">xavfsiz</string>
+    <string name="ui_verdict_suspicious">shubhali</string>
+    <string name="ui_verdict_malicious">zararli</string>
+    <string name="source_manual">Qo‘lda</string>
+    <string name="source_scheduled">Rejali</string>
+    <string name="source_real_time">Real vaqt</string>
+    <string name="source_file">Fayl</string>
+</resources>

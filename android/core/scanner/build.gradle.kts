@@ -1,4 +1,5 @@
 import com.blackshield.buildlogic.CopyApkTask
+import com.blackshield.buildlogic.NativeFuzzTask
 import com.blackshield.buildlogic.NativeGTestTask
 
 plugins {
@@ -40,6 +41,14 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.all { test ->
+            test.useJUnitPlatform()
+            // JAZZER_FUZZ=1 turns the @FuzzTest regression runs into real fuzzing (see docs/testing.md).
+            System.getenv("JAZZER_FUZZ")?.let { test.environment("JAZZER_FUZZ", it) }
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
@@ -57,6 +66,13 @@ dependencies {
 
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.tls)
+    // Jazzer fuzz tests for the APK, manifest and certificate parsers (src/test/.../fuzz). They run on the JUnit
+    // Platform; the vintage engine keeps the JUnit 4 tests running alongside.
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.jazzer.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
@@ -78,6 +94,25 @@ tasks.register<NativeGTestTask>("connectedNativeTest") {
     abi.set(providers.gradleProperty("nativeTestAbi").orElse("x86_64"))
     minSdk.set(libs.versions.minSdk.map(String::toInt))
     gtestFilter.set(providers.gradleProperty("gtestFilter").orElse("*"))
+    // -PnativeSanitize=address,undefined runs the suite under AddressSanitizer and UndefinedBehaviorSanitizer.
+    sanitize.set(providers.gradleProperty("nativeSanitize").orElse(""))
+}
+
+// libFuzzer targets (src/nativeFuzz) with ASan + UBSan on a connected device, seeded from src/nativeFuzz/corpus:
+//   ./gradlew :core:scanner:connectedNativeFuzz [-PfuzzSeconds=300]
+tasks.register<NativeFuzzTask>("connectedNativeFuzz") {
+    group = "verification"
+    description = "Builds the native fuzz targets with ASan/UBSan and fuzzes them on the connected device."
+    sourceDirectory.set(layout.projectDirectory.dir("src/main/cpp"))
+    corpusDirectory.set(layout.projectDirectory.dir("src/nativeFuzz/corpus"))
+    buildDirectory.set(layout.buildDirectory.dir("native-fuzz"))
+    sdkDirectory.set(androidComponents.sdkComponents.sdkDirectory)
+    ndkVersion.set(libs.versions.ndk)
+    cmakeVersion.set(libs.versions.cmake)
+    abi.set(providers.gradleProperty("nativeTestAbi").orElse("x86_64"))
+    minSdk.set(libs.versions.minSdk.map(String::toInt))
+    targets.set(listOf("yara_scan_fuzzer"))
+    seconds.set(providers.gradleProperty("fuzzSeconds").map(String::toInt).orElse(120))
 }
 
 // A real APK with YARA test markers in its DEX code, for the instrumented YARA tests.

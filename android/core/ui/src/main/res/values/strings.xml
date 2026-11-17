@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_meta">%1$s · %2$s</string>
+    <plurals name="history_scan_clean">
+        <item quantity="one">Scan: %1$d app, no threats</item>
+        <item quantity="other">Scan: %1$d apps, no threats</item>
+    </plurals>
+    <plurals name="history_scan_threats">
+        <item quantity="one">Scan: %1$d threat found</item>
+        <item quantity="other">Scan: %1$d threats found</item>
+    </plurals>
+    <string name="history_checked">%1$s: %2$s</string>
+    <string name="history_quarantined">Quarantined %1$s</string>
+    <string name="history_restored">Restored %1$s</string>
+    <string name="history_deleted">Deleted %1$s</string>
+    <string name="history_uninstalled">Uninstalled %1$s</string>
+    <string name="ui_verdict_clean">clean</string>
+    <string name="ui_verdict_suspicious">suspicious</string>
+    <string name="ui_verdict_malicious">malicious</string>
+    <string name="source_manual">Manual</string>
+    <string name="source_scheduled">Scheduled</string>
+    <string name="source_real_time">Real-time</string>
+    <string name="source_file">File</string>
+</resources>

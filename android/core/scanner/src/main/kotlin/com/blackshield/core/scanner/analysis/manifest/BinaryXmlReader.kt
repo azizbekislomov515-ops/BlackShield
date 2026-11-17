@@ -9,7 +9,7 @@ import java.nio.ByteOrder
 import java.nio.charset.CodingErrorAction
 
 /** The manifest could not be parsed. The message describes where; it never contains file contents. */
-class ManifestParseException(message: String) : Exception(message)
+class ManifestParseException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** A typed attribute value from Android binary XML (`Res_value`). */
 sealed interface AttributeValue {
@@ -160,6 +160,8 @@ internal class BinaryXmlReader(bytes: ByteArray) {
 
         init {
             if (size < POOL_HEADER_SIZE) fail("string pool too small")
+            // The chunk's declared size must fit in the file: every bound below is relative to it.
+            if (start < 0 || size > buffer.limit() - start) fail("string pool exceeds the file")
             val stringCount = buffer.getInt(start + 8).toLong() and MASK_32
             val flags = buffer.getInt(start + 16)
             stringsStart = buffer.getInt(start + 20)
@@ -178,9 +180,10 @@ internal class BinaryXmlReader(bytes: ByteArray) {
             val i = index.toInt()
             cache[i]?.let { return it }
             val offset = buffer.getInt(start + POOL_HEADER_SIZE + i * Int.SIZE_BYTES)
-            val at = start + stringsStart + offset
-            if (offset < 0 || at >= start + size) fail("string offset out of range")
-            return (if (utf8) utf8At(at) else utf16At(at)).also { cache[i] = it }
+            // In Long: a large offset must not wrap around to a negative position.
+            val at = start.toLong() + stringsStart + offset
+            if (offset < 0 || at >= start.toLong() + size) fail("string offset out of range")
+            return (if (utf8) utf8At(at.toInt()) else utf16At(at.toInt())).also { cache[i] = it }
         }
 
         private fun utf16At(at: Int): String {

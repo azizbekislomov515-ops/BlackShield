@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Notification channels -->
+    <string name="channel_status_name">Himoya holati</string>
+    <string name="channel_status_description">Real vaqt himoyasi ishlayotganini ko‘rsatadi.</string>
+    <string name="channel_threats_name">Tahdid ogohlantirishlari</string>
+    <string name="channel_threats_description">Zararli yoki shubhali ilovalar va APK fayllar.</string>
+
+    <!-- Status notification -->
+    <string name="status_title">Real vaqt himoyasi yoqiq</string>
+    <string name="status_text_apps">Yangi va yangilangan ilovalar tekshirilmoqda</string>
+    <string name="status_text_files">Yangi ilovalar va APK yuklanmalar tekshirilmoqda</string>
+    <string name="action_turn_off">O‘chirish</string>
+
+    <!-- Threat notifications -->
+    <string name="threat_title_malicious">%1$s zararli</string>
+    <string name="threat_title_suspicious">%1$s shubhali ko‘rinadi</string>
+    <string name="threat_text_app">O‘rnatilayotganda tekshirildi.</string>
+    <string name="threat_text_file">%1$s ichida topildi. Uni o‘rnatmang.</string>
+    <string name="action_uninstall">O‘chirish</string>
+    <string name="action_ignore">E’tiborsiz qoldirish</string>
+    <string name="action_details">Batafsil</string>
+
+    <!-- Troubleshooting -->
+    <string name="troubleshooting_title">Muammolarni hal qilish</string>
+    <string name="troubleshooting_back">Orqaga</string>
+    <string name="troubleshooting_intro">Ba’zi sozlamalar va telefon ishlab chiqaruvchilari fon ilovalarini to‘xtatadi. Bu sahifa ularni tekshiradi.</string>
+    <string name="troubleshooting_all_good">Hammasi joyida. Himoya ishlashda davom etadi.</string>
+    <string name="issue_protection_off_title">Real vaqt himoyasi o‘chiq</string>
+    <string name="issue_protection_off_body">Yangi ilova va yuklanmalar tekshirilmaydi.</string>
+    <string name="issue_not_running_title">Himoya ishlamayapti</string>
+    <string name="issue_not_running_body">Tizim uni to‘xtatgan. Qayta ishga tushiring va quyidagilarni tekshiring.</string>
+    <string name="issue_notifications_title">Bildirishnomalar bloklangan</string>
+    <string name="issue_notifications_body">Ogohlantirishlar sizga yetib bormaydi.</string>
+    <string name="issue_threat_channel_title">Tahdid ogohlantirishlari o‘chiq</string>
+    <string name="issue_threat_channel_body">“Tahdid ogohlantirishlari” toifasini yoqing.</string>
+    <string name="issue_background_title">Fonda ishlash cheklangan</string>
+    <string name="issue_background_body">Ilova haqida &gt; Batareya bo‘limida “Cheklanmagan” yoki “Optimallashtirilgan”ni tanlang.</string>
+    <string name="issue_battery_title">Batareya optimallashtirish yoqiq</string>
+    <string name="issue_battery_body">BlackShieldni tanlang va “Optimallashtirmaslik”ni belgilang. Himoya juda kam quvvat sarflaydi.</string>
+    <string name="issue_bucket_title">Android BlackShieldni kam ishlatiladi deb hisoblaydi</string>
+    <string name="issue_bucket_body">Ilovani vaqti-vaqti bilan oching yoki Ilova haqida bo‘limida fon cheklovlarini olib tashlang.</string>
+    <string name="issue_downloads_title">Yuklanmalarni tekshirib bo‘lmaydi</string>
+    <string name="issue_downloads_body">BlackShield yuklanmalarni ko‘rishi uchun “Barcha fayllarga kirish”ga ruxsat bering.</string>
+    <string name="issue_oem_title">Telefoningiz fon ilovalarini to‘xtatishi mumkin</string>
+    <string name="oem_xiaomi">Xiaomi, Redmi, POCO: Avtoishga tushirishni yoqing va Quvvat tejashni “Cheklovlarsiz” qiling.</string>
+    <string name="oem_huawei">Huawei, Honor: Ilovalarni ishga tushirish bo‘limida BlackShieldni “Qo‘lda boshqarish”ga o‘tkazing va barcha bandlarni yoqing.</string>
+    <string name="oem_samsung">Samsung: BlackShieldni “Uxlayotgan ilovalar”dan olib, “Hech qachon uxlamaydigan ilovalar”ga qo‘shing.</string>
+    <string name="oem_oneplus">OnePlus: avtoishga tushirishga ruxsat bering va batareyani “Optimallashtirmaslik”ga o‘rnating.</string>
+    <string name="oem_oppo">OPPO, realme: avtoishga tushirish va fonda ishlashga ruxsat bering.</string>
+    <string name="oem_vivo">vivo, iQOO: fonda ishga tushish va fonda yuqori quvvat sarfiga ruxsat bering.</string>
+    <string name="fix_enable">Yoqish</string>
+    <string name="fix_restart">Himoyani qayta ishga tushirish</string>
+    <string name="fix_notifications">Bildirishnoma sozlamalari</string>
+    <string name="fix_battery">Batareya optimallashtirish</string>
+    <string name="fix_app_settings">Ilova haqida</string>
+    <string name="fix_all_files">Barcha fayllarga kirishga ruxsat</string>
+    <string name="fix_oem">Telefon sozlamalarini ochish</string>
+</resources>

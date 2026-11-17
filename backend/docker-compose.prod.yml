@@ -1,0 +1,191 @@
+# Production deployment: Nginx (TLS, edge rate limits) -> API -> PostgreSQL, plus workers, backups and maintenance.
+#
+#   cp .env.prod.example .env      # fill in every value; see docs/backend-operations.md
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml --profile workers up -d   # feed ingestion (run one of each)
+#
+# Networks: only Nginx is reachable from outside. The API and the database sit on internal networks with no route
+# to the internet; the workers get an egress network because they download feeds.
+
+name: blackshield
+
+x-api-image: &api-image
+  build: .
+  image: blackshield-api:${BLACKSHIELD_VERSION:-latest}
+  env_file:
+    - path: .env
+      required: true
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+
+x-database-url: &database-url
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?set POSTGRES_DB}
+
+services:
+  nginx:
+    image: nginx:1.28-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      # fullchain.pem and privkey.pem (e.g. from certbot); renew outside the container and reload nginx.
+      - ${TLS_CERT_DIR:?set TLS_CERT_DIR}:/etc/nginx/tls:ro
+      - acme-webroot:/var/www/acme:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    networks: [public, app]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  api:
+    <<: *api-image
+    environment:
+      <<: *database-url
+      ENVIRONMENT: production
+      DOCS_ENABLED: "false"
+      LOG_JSON: "true"
+      # Only Nginx can reach the API (internal network, no published port), so the client address it forwards
+      # is trusted. Nginx overwrites X-Forwarded-For with the real peer address, so clients cannot spoof it.
+      FORWARDED_ALLOW_IPS: "*"
+    expose: ["8000"]
+    networks: [app, data]
+    depends_on:
+      db:
+        condition: service_healthy
+    # Readiness (database reachable), so Nginx only starts sending traffic once the API can answer.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready').status == 200 else 1)"
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+
+  worker:
+    <<: *api-image
+    profiles: [workers]
+    command: ["blackshield-signatures", "schedule"]
+    environment:
+      <<: *database-url
+    networks: [data, egress]
+    depends_on:
+      api:
+        condition: service_healthy  # the API container applies migrations on start
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 384M}
+
+  domains-worker:
+    <<: *api-image
+    profiles: [workers]
+    command: ["blackshield-signatures", "domains-schedule"]
+    environment:
+      <<: *database-url
+    networks: [data, egress]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 384M}
+
+  # Daily maintenance: delete crash reports past their 90-day retention.
+  maintenance:
+    <<: *api-image
+    command: ["sh", "-c", "while true; do blackshield-signatures crashes-prune; sleep 86400; done"]
+    environment:
+      <<: *database-url
+    networks: [data]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [data]
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Nightly logical backups (custom format, restorable with pg_restore), kept for BACKUP_KEEP_DAYS days. Copy the
+  # backups volume off the host as well; see docs/backend-operations.md#backups.
+  backup:
+    image: postgres:18-alpine
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:?set POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:?set POSTGRES_DB}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          file=/backups/blackshield-$$(date -u +%Y%m%dT%H%M%SZ).dump
+          if pg_dump --format=custom --file="$$file.partial" && mv "$$file.partial" "$$file"; then
+            echo "backup written: $$file"
+          else
+            echo "backup FAILED" >&2; rm -f "$$file.partial"
+          fi
+          find /backups -name 'blackshield-*.dump' -mtime +$$BACKUP_KEEP_DAYS -delete
+          sleep 86400
+        done
+    volumes:
+      - backups:/backups
+    networks: [data]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  public: {}
+  app:
+    internal: true
+  data:
+    internal: true
+  egress: {}
+
+volumes:
+  postgres-data:
+  backups:
+  acme-webroot:

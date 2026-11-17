@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="webshield_title">Veb qalqon</string>
+    <string name="webshield_summary">Barcha ilovalarda zararli va fishing saytlarni bloklaydi.</string>
+    <string name="webshield_switch">Veb qalqon</string>
+    <string name="webshield_status_off">O‘chiq</string>
+    <string name="webshield_status_starting">Ishga tushmoqda…</string>
+    <string name="webshield_status_on">Yoqiq: har bir sayt so‘rovi tekshirilmoqda</string>
+    <string name="webshield_status_no_permission">O‘chiq: VPN ruxsati kerak</string>
+    <string name="webshield_status_revoked">O‘chiq: boshqa VPN ishga tushdi</string>
+    <string name="webshield_status_failed">O‘chiq: Android VPNni rad etdi. Boshqa ilova doimiy VPN bo‘lishi mumkin.</string>
+    <string name="webshield_always_on">Doimiy VPN sifatida o‘rnatilgan.</string>
+    <string name="webshield_onboarding_title">Nega VPN?</string>
+    <string name="webshield_onboarding_body">Android ilovaga sayt so‘rovlarini faqat VPN orqali ko‘rishga ruxsat beradi. Veb qalqon undan bitta maqsadda foydalanadi: har bir saytni telefoningizning o‘zida xavfli saytlar ro‘yxati bilan solishtiradi.
+
+• Faqat so‘rovlar (DNS) o‘tadi. Saytlarning o‘zi to‘g‘ridan-to‘g‘ri internetga ochiladi.
+• Hech narsa VPN serverga yuborilmaydi.
+• Ko‘rilgan saytlar tarixi saqlanmaydi, faqat bloklanganlar soni.
+
+Veb qalqon yoqiqligida kalit belgisi ko‘rinadi.</string>
+    <string name="webshield_onboarding_continue">Davom etish</string>
+    <string name="webshield_onboarding_cancel">Hozir emas</string>
+    <string name="webshield_warning_private_dns">Shaxsiy DNS (%1$s) Veb qalqonni chetlab o‘tadi. Uni Avtomatik yoki O‘chiq holatiga qo‘ying.</string>
+    <string name="webshield_warning_no_network">Tarmoq yo‘q: aloqa tiklanganda so‘rovlar davom etadi.</string>
+    <string name="webshield_open_settings">Sozlamalarni ochish</string>
+    <string name="webshield_turn_on_again">Qayta yoqish</string>
+    <string name="webshield_note_browsers">O‘z xavfsiz DNSiga ega brauzerlar Veb qalqonni chetlab o‘tadi.</string>
+    <string name="webshield_stats_title">Bloklangan</string>
+    <string name="webshield_stats_today">Bugun</string>
+    <string name="webshield_stats_week">7 kun</string>
+    <string name="webshield_stats_total">Jami</string>
+    <string name="webshield_stats_split">Zararli: %1$d · Fishing: %2$d</string>
+    <string name="webshield_list_title">Bloklash ro‘yxati</string>
+    <plurals name="webshield_list_count">
+        <item quantity="one">%1$d ta domen</item>
+        <item quantity="other">%1$d ta domen</item>
+    </plurals>
+    <string name="webshield_list_updated">Yangilangan: %1$s</string>
+    <string name="webshield_list_never">Keyingi baza yangilanishi bilan keladi.</string>
+    <string name="webshield_notify">Sayt bloklanganda xabar berish</string>
+    <string name="webshield_notify_summary">“Bir marta ruxsat” bilan</string>
+    <string name="webshield_activity">Faollik jurnali</string>
+    <string name="webshield_activity_summary">Bloklangan saytlarni shu telefonda 7 kun saqlaydi. Kirilgan saytlar hech qachon yozilmaydi.</string>
+    <string name="webshield_activity_empty">Hali bloklangan sayt yo‘q.</string>
+    <string name="webshield_activity_clear">Jurnalni tozalash</string>
+    <string name="webshield_allow_title">Doim ruxsat etilgan</string>
+    <string name="webshield_allow_summary">Subdomenlari bilan birga hech qachon bloklanmaydi.</string>
+    <string name="webshield_allow_hint">example.com</string>
+    <string name="webshield_allow_add">Ruxsat</string>
+    <string name="webshield_allow_remove">Olib tashlash</string>
+    <string name="webshield_allow_invalid">example.com kabi domen kiriting</string>
+    <string name="webshield_channel_blocked">Bloklangan saytlar</string>
+    <string name="webshield_channel_blocked_description">Ma’lum zararli yoki fishing sayt bloklandi.</string>
+    <string name="webshield_channel_status">Veb qalqon holati</string>
+    <string name="webshield_blocked_malware">Zararli sayt bloklandi</string>
+    <string name="webshield_blocked_phishing">Fishing sayt bloklandi</string>
+    <string name="webshield_blocked_body">%1$s xavfli saytlar ro‘yxatida. Agar ishonsangiz, ruxsat bering.</string>
+    <string name="webshield_allow_once">Bir marta ruxsat</string>
+    <string name="webshield_always_allow">Doim ruxsat</string>
+    <string name="webshield_revoked_title">Veb qalqon o‘chdi</string>
+    <string name="webshield_revoked_body">Boshqa VPN ishga tushdi yoki VPN uzildi. Yoqish uchun BlackShieldni oching.</string>
+    <string name="webshield_vpn_session">BlackShield Veb qalqon</string>
+    <string name="webshield_tile_label">Veb qalqon</string>
+    <string name="webshield_tile_on">Yoqiq</string>
+    <string name="webshield_tile_off">O‘chiq</string>
+    <string name="webshield_tile_starting">Ishga tushmoqda</string>
+</resources>

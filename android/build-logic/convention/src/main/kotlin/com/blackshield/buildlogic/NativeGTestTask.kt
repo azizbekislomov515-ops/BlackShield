@@ -11,9 +11,9 @@ import org.gradle.process.ExecOperations
 import org.gradle.work.DisableCachingByDefault
 
 /**
- * Cross-compiles the GoogleTest suite of a native module with the NDK's CMake toolchain,
- * pushes the binary to the connected device (honours ANDROID_SERIAL) and runs it there.
- * The task fails if any test fails.
+ * Cross-compiles the GoogleTest suite of a native module with the NDK's CMake toolchain, optionally with
+ * sanitizers ([sanitize]: "address", "undefined" or "address,undefined"), pushes it to the connected device
+ * (honours ANDROID_SERIAL) and runs it there. The task fails if any test fails or a sanitizer reports an error.
  */
 @DisableCachingByDefault(because = "Runs tests on a connected device")
 abstract class NativeGTestTask : DefaultTask() {
@@ -49,68 +49,64 @@ abstract class NativeGTestTask : DefaultTask() {
     @get:Input
     abstract val gtestFilter: Property<String>
 
+    /** Empty for a plain build. */
+    @get:Input
+    abstract val sanitize: Property<String>
+
     init {
         outputs.upToDateWhen { false }
+        sanitize.convention("")
     }
 
     @TaskAction
     fun run() {
-        val sdk = sdkDirectory.get().asFile
-        val exe = if (System.getProperty("os.name").startsWith("Windows")) ".exe" else ""
-        val cmakeBin = sdk.resolve("cmake/${cmakeVersion.get()}/bin")
-        val cmake = cmakeBin.resolve("cmake$exe")
-        val ninja = cmakeBin.resolve("ninja$exe")
-        val ndk = sdk.resolve("ndk/${ndkVersion.get()}")
-        val adb = sdk.resolve("platform-tools/adb$exe")
-        listOf(cmake, ninja, ndk, adb).forEach {
-            require(it.exists()) { "Missing $it (install it with the SDK manager)" }
-        }
-
-        val abi = abi.get()
-        val buildDir = buildDirectory.get().asFile.resolve(abi)
-        logger.lifecycle("Building native tests from ${testSourceDirectory.get().asFile} for $abi")
-
-        run(
-            cmake.path,
-            "-S", sourceDirectory.get().asFile.path,
-            "-B", buildDir.path,
-            "-G", "Ninja",
-            "-DCMAKE_MAKE_PROGRAM=${ninja.path}",
-            "-DCMAKE_TOOLCHAIN_FILE=${ndk.resolve("build/cmake/android.toolchain.cmake").path}",
-            "-DANDROID_ABI=$abi",
-            "-DANDROID_PLATFORM=android-${minSdk.get()}",
-            "-DANDROID_STL=c++_static",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DBLACKSHIELD_BUILD_TESTS=ON",
+        val runner = NativeDeviceRunner(
+            execOperations,
+            logger,
+            sdkDirectory.get().asFile,
+            ndkVersion.get(),
+            cmakeVersion.get()
         )
-        run(cmake.path, "--build", buildDir.path, "--target", TEST_BINARY)
+        val abi = abi.get()
+        val sanitize = sanitize.get()
+        val variant = if (sanitize.isEmpty()) abi else "$abi-${sanitize.replace(',', '-')}"
+        runner.lifecycle("Building native tests from ${testSourceDirectory.get().asFile} for $variant")
+        val binary = runner.build(
+            NativeDeviceRunner.Build(
+                source = sourceDirectory.get().asFile,
+                buildDir = buildDirectory.get().asFile.resolve(variant),
+                abi = abi,
+                minSdk = minSdk.get(),
+                options = listOf("-DBLACKSHIELD_BUILD_TESTS=ON", "-DBLACKSHIELD_SANITIZE=$sanitize"),
+                targets = listOf(TEST_BINARY)
+            )
+        ).single()
 
-        val binary = buildDir.walkTopDown().first { it.isFile && it.name == TEST_BINARY }
-        val deviceBinary = "$DEVICE_DIR/$TEST_BINARY"
-        run(adb.path, "shell", "rm -rf $DEVICE_DIR && mkdir -p $DEVICE_DIR")
+        runner.shell("rm -rf $DEVICE_DIR && mkdir -p $DEVICE_DIR")
         try {
-            run(adb.path, "push", binary.path, deviceBinary)
-            run(adb.path, "shell", "chmod 755 $deviceBinary")
-            run(
-                adb.path,
-                "shell",
-                "cd $DEVICE_DIR && TMPDIR=$DEVICE_DIR ./$TEST_BINARY --gtest_color=no " +
-                    "--gtest_filter='${gtestFilter.get()}'",
+            runner.push(binary, "$DEVICE_DIR/$TEST_BINARY")
+            runner.sanitizerRuntime(sanitize, abi)?.let { runner.push(it, "$DEVICE_DIR/${it.name}") }
+            runner.shell("chmod 755 $DEVICE_DIR/$TEST_BINARY")
+            runner.shell(
+                "cd $DEVICE_DIR && TMPDIR=$DEVICE_DIR LD_LIBRARY_PATH=$DEVICE_DIR $SANITIZER_OPTIONS " +
+                    "./$TEST_BINARY --gtest_color=no --gtest_filter='${gtestFilter.get()}'"
             )
         } finally {
-            execOperations.exec {
-                commandLine(adb.path, "shell", "rm -rf $DEVICE_DIR")
-                isIgnoreExitValue = true
-            }
+            runner.shellQuietly("rm -rf $DEVICE_DIR")
         }
-    }
-
-    private fun run(vararg command: String) {
-        execOperations.exec { commandLine(*command) }
     }
 
     private companion object {
         const val TEST_BINARY = "blackshield_scanner_tests"
         const val DEVICE_DIR = "/data/local/tmp/blackshield-native-tests"
+
+        /**
+         * Any sanitizer report is fatal. ASan's periodic release of free memory to the OS is off: on the Android
+         * emulator it zeroes allocator metadata of quarantined chunks after tens of thousands of runs, and ASan then
+         * stops with a false "CHECK failed ... kAllocBegMagic". Detection does not depend on it.
+         */
+        const val SANITIZER_OPTIONS =
+            "ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:allocator_release_to_os_interval_ms=-1 " +
+                "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1"
     }
 }

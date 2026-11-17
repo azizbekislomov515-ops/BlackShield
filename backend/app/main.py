@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import health
+from app.api import health, metrics
 from app.api import v1 as api_v1
 from app.api.v1.deps import SecurityState
 from app.core.config import Settings, get_settings
@@ -35,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.security = SecurityState.from_settings(settings)
 
     app.include_router(health.router)
+    app.include_router(metrics.router)
     app.include_router(api_v1.router)
 
     # Added innermost first: request context (outermost) -> CORS -> body size limit -> app.

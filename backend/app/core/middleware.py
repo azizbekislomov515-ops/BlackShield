@@ -10,6 +10,8 @@ from typing import Any
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.metrics import observe_request
+
 logger = logging.getLogger("app.access")
 _REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{8,64}")
 
@@ -51,6 +53,7 @@ class RequestContextMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
+            observe_request(_route_template(scope), scope["method"], status, started)
             logger.info(
                 "request",
                 extra={
@@ -116,6 +119,27 @@ class BodySizeLimitMiddleware:
             if response_started:
                 raise
             await _send_error(send, 413, "request body too large")
+
+
+def _route_template(scope: Scope) -> str | None:
+    """The matched route as a template, e.g. /v1/signatures/delta; None when nothing matched.
+
+    Routes of included routers carry their path relative to the router, so the prefix is recovered
+    from the request path: everything before the route's own (parameter-filled) path.
+    """
+    route = scope.get("route")
+    if route is None:
+        return None
+    path: str = scope["path"]
+    params = scope.get("path_params") or {}
+    relative: str = getattr(route, "path_format", None) or getattr(route, "path", "")
+    try:
+        filled = relative.format(**{key: str(value) for key, value in params.items()})
+    except (KeyError, IndexError, ValueError):
+        return relative
+    if filled and path.endswith(filled):
+        return path[: len(path) - len(filled)] + relative
+    return relative
 
 
 def _header(scope: Scope, name: bytes) -> str | None:

@@ -75,4 +75,29 @@ internal val MIGRATION_2_3 =
         }
     }
 
-internal val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+/** v3 -> v4: scan history and harmful files (detected and quarantined). Nothing existing changes. */
+internal val MIGRATION_3_4 =
+    object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `history` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`occurred_at` INTEGER NOT NULL, `kind` TEXT NOT NULL, `source` TEXT NOT NULL, " +
+                    "`verdict` TEXT NOT NULL, `subject` TEXT NOT NULL, `target` TEXT, " +
+                    "`risk_score` INTEGER NOT NULL, `items_scanned` INTEGER NOT NULL, " +
+                    "`threats_found` INTEGER NOT NULL, `duration_millis` INTEGER NOT NULL, `detail` TEXT NOT NULL)"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_history_occurred_at` ON `history` (`occurred_at`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `file_threats` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`display_name` TEXT NOT NULL, `source_path` TEXT, `source_uri` TEXT, " +
+                    "`size_bytes` INTEGER NOT NULL, `sha256` TEXT, `package_name` TEXT, `app_label` TEXT, " +
+                    "`verdict` TEXT NOT NULL, `risk_score` INTEGER NOT NULL, `reasons` TEXT NOT NULL, " +
+                    "`detected_at` INTEGER NOT NULL, `state` TEXT NOT NULL, `vault_file` TEXT, " +
+                    "`quarantined_at` INTEGER)"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_file_threats_state` ON `file_threats` (`state`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_file_threats_sha256` ON `file_threats` (`sha256`)")
+        }
+    }
+
+internal val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)

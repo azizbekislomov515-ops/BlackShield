@@ -277,6 +277,12 @@ TEST_F(LargeFileTest, ConcurrentHashesAreIndependent) {
 }
 
 TEST_F(LargeFileTest, MemoryStaysFlatWhileHashing512MiB) {
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+    // ASan's shadow memory and freed-memory quarantine grow RSS on their own; the budget is for real builds.
+    GTEST_SKIP() << "RSS budget is not meaningful under AddressSanitizer";
+#endif
+#endif
     std::atomic<bool> done{false};
     std::atomic<long> peak_kib{0};
     std::atomic<int> samples{0};

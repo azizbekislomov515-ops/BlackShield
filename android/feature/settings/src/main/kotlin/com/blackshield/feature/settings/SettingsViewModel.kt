@@ -2,6 +2,9 @@ package com.blackshield.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.blackshield.core.data.prefs.AppSettingsRepository
+import com.blackshield.core.data.prefs.ScanSchedule
+import com.blackshield.core.data.prefs.ThemeMode
 import com.blackshield.core.data.prefs.UserPreferencesRepository
 import com.blackshield.core.data.repository.SignatureSyncStore
 import com.blackshield.core.sync.SignatureSyncScheduler
@@ -35,7 +38,10 @@ data class SettingsUiState(
     /** Real-time protection also checks new APK files in Downloads. */
     val watchDownloads: Boolean = false,
     /** SAF tree URIs of extra folders to watch. */
-    val watchedFolders: List<String> = emptyList()
+    val watchedFolders: List<String> = emptyList(),
+    val schedule: ScanSchedule = ScanSchedule(),
+    val theme: ThemeMode = ThemeMode.SYSTEM,
+    val crashReports: Boolean = false
 )
 
 @HiltViewModel
@@ -43,6 +49,7 @@ class SettingsViewModel
 @Inject
 constructor(
     private val userPreferences: UserPreferencesRepository,
+    private val appSettings: AppSettingsRepository,
     private val syncScheduler: SignatureSyncScheduler,
     syncState: SyncStateRepository,
     signatureStore: SignatureSyncStore
@@ -72,6 +79,10 @@ constructor(
                 (downloads, folders)
             ->
             settings.copy(watchDownloads = downloads, watchedFolders = folders.sorted())
+        }.combine(
+            combine(appSettings.scanSchedule, appSettings.themeMode, appSettings.crashReportsEnabled, ::Triple)
+        ) { settings, (schedule, theme, crashReports) ->
+            settings.copy(schedule = schedule, theme = theme, crashReports = crashReports)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SettingsUiState())
 
     fun setRealTimeProtectionEnabled(enabled: Boolean) {
@@ -95,6 +106,18 @@ constructor(
     }
 
     fun syncNow() = syncScheduler.syncNow()
+
+    fun setSchedule(schedule: ScanSchedule) {
+        viewModelScope.launch { appSettings.setScanSchedule(schedule) }
+    }
+
+    fun setTheme(theme: ThemeMode) {
+        viewModelScope.launch { appSettings.setThemeMode(theme) }
+    }
+
+    fun setCrashReports(enabled: Boolean) {
+        viewModelScope.launch { appSettings.setCrashReportsEnabled(enabled) }
+    }
 
     private companion object {
         const val STOP_TIMEOUT_MILLIS = 5_000L

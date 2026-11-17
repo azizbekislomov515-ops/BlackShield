@@ -4,16 +4,31 @@ Every permission BlackShield requests, why, and where it is declared. Update thi
 change that adds or removes a permission. The merged manifest is the source of truth:
 `android/app/build/intermediates/merged_manifest/<variant>/.../AndroidManifest.xml`.
 
-| Permission | Declared in | Protection level | Used for |
-| --- | --- | --- | --- |
-| `QUERY_ALL_PACKAGES` | `:core:scanner` manifest | normal (restricted by Google Play policy) | Listing every installed app to scan it |
-| `INTERNET` | `:core:network` manifest | normal | Signature updates and reputation lookups (hashes only) |
-| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE` | `:feature:protection` | normal | The real-time protection service |
-| `RECEIVE_BOOT_COMPLETED` | `:feature:protection` | normal | Restarting real-time protection after a reboot |
-| `POST_NOTIFICATIONS` | `:feature:protection` | dangerous (Android 13+) | Threat warnings and the service's status notification |
-| `REQUEST_DELETE_PACKAGES` | `:feature:protection` | normal | "Uninstall" in a warning opens the system uninstall dialog |
-| `READ_EXTERNAL_STORAGE` (max SDK 29) | `:feature:protection` | dangerous | Checking new APKs in Download on Android 10 and older |
-| `MANAGE_EXTERNAL_STORAGE` | `:feature:protection` | special ("All files access", restricted by Google Play policy) | Checking new APKs in Download on Android 11+; optional |
+This table lists every `<uses-permission>` in the release APK's merged manifest (checked with
+`aapt2 dump badging app-release.apk` for 1.0.0). Library permissions are included.
+
+| Permission | Declared by | Protection level | Requested at runtime | Used for |
+| --- | --- | --- | --- | --- |
+| `QUERY_ALL_PACKAGES` | `:core:scanner` | normal (restricted by Google Play policy) | no | Listing every installed app to scan it (core function; see below) |
+| `INTERNET` | `:core:network`, `:feature:webshield` | normal | no | Signature, domain and rule updates; reputation lookups (hashes only); opt-in crash reports; forwarding allowed DNS queries |
+| `ACCESS_NETWORK_STATE` | `:feature:webshield` (also WorkManager) | normal | no | Following Wi-Fi/mobile switches; WorkManager network constraints |
+| `CHANGE_NETWORK_STATE` | `:feature:webshield` | normal | no | `requestNetwork()` to find the real network under the VPN (Android 11 and older) |
+| `FOREGROUND_SERVICE` | `:feature:protection` | normal | no | The real-time protection service |
+| `FOREGROUND_SERVICE_SPECIAL_USE` | `:feature:protection` | normal | no | Its `specialUse` type (Android 14+) |
+| `RECEIVE_BOOT_COMPLETED` | `:feature:protection`, `:feature:webshield` (also WorkManager) | normal | no | Restarting protection and Web Shield after a reboot; WorkManager rescheduling |
+| `POST_NOTIFICATIONS` | `:feature:protection`, `:feature:webshield` | dangerous (Android 13+) | yes, when real-time protection is turned on | Threat warnings, "blocked page", scheduled-scan results, the service notification |
+| `REQUEST_DELETE_PACKAGES` | `:feature:protection` | normal | no (the system asks the user each time) | "Uninstall" opens the system uninstall dialog |
+| `READ_EXTERNAL_STORAGE` (maxSdk 29) | `:feature:protection` | dangerous | yes, when download monitoring is turned on (Android 10 and older) | Checking new APKs in Download |
+| `MANAGE_EXTERNAL_STORAGE` | `:feature:protection` | special ("All files access"; restricted by Google Play policy) | yes, system settings page, only when download monitoring is turned on (Android 11+) | Checking other apps' APK downloads in Download; optional |
+| `WAKE_LOCK` | WorkManager (library) | normal | no | Keeping the CPU awake while a scheduled job (sync, scheduled scan, crash upload) runs |
+| `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | AndroidX Core (library) | signature (own app only) | no | Protects receivers registered at runtime as not exported (Android 13+ compatibility) |
+
+Permissions BlackShield *enforces* on its own components (it does not hold them):
+`BIND_VPN_SERVICE` (only the system can bind the Web Shield VPN service), `BIND_QUICK_SETTINGS_TILE` (only System UI can
+bind the tile), `BIND_JOB_SERVICE` and `DUMP` (WorkManager and ProfileInstaller library components, system only).
+
+Not used: Accessibility services, device administration, SMS, contacts, location, camera, microphone, phone state,
+`SYSTEM_ALERT_WINDOW`, exact alarms, `REQUEST_INSTALL_PACKAGES`, `PACKAGE_USAGE_STATS`.
 
 The Room database, DataStore and native hashing need no permissions. APK files under `/data/app` and the system
 partitions can be read by any app.
@@ -147,6 +162,20 @@ The troubleshooting screen opens `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`, 
 BlackShield. It does not use `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` / `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`,
 because Play restricts that permission to a narrow set of use cases. Protection is event-driven (broadcasts,
 MediaStore and document notifications, debounced), with no polling, so it costs very little battery in practice.
+
+## Quarantine and scheduled scans
+
+No new permission.
+
+- **Quarantine** encrypts into app-private storage. To delete the original of a file the user picked, the app keeps
+  the picker's persistable URI permission and deletes through `DocumentsContract`. Downloads seen by real-time
+  protection are deleted with the access described above. *Restore* writes only where the user picks with the system
+  file picker (`ACTION_CREATE_DOCUMENT`).
+- **Uninstalling** a harmful app uses `REQUEST_DELETE_PACKAGES`; the system always asks the user to confirm.
+- **Scheduled scans** run in WorkManager, so no exact alarms, no wake lock and no extra foreground service. They
+  wait for the conditions the user chose (charging and/or idle, battery not low). A scan that finds threats posts a
+  notification on its own channel, using `POST_NOTIFICATIONS`.
+- The **history report** is written only to a location the user picks.
 
 ## Web Shield
 

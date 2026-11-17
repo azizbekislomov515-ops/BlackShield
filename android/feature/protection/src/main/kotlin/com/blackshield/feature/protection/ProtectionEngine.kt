@@ -2,6 +2,8 @@ package com.blackshield.feature.protection
 
 import android.content.Context
 import android.os.SystemClock
+import com.blackshield.core.data.model.ScanSource
+import com.blackshield.core.scanner.ScanRecorder
 import com.blackshield.core.scanner.apps.InstalledAppScanner
 import com.blackshield.core.scanner.files.ApkCandidate
 import com.blackshield.core.scanner.files.ApkFileScanner
@@ -28,7 +30,8 @@ constructor(
     private val appScanner: InstalledAppScanner,
     private val fileScanner: ApkFileScanner,
     private val notifications: ProtectionNotifications,
-    private val state: ProtectionStateStore
+    private val state: ProtectionStateStore,
+    private val recorder: ScanRecorder
 ) {
     private lateinit var scope: CoroutineScope
     private lateinit var packages: KeyedDebouncer<String, Long>
@@ -61,6 +64,7 @@ constructor(
 
     private suspend fun scanPackage(packageName: String, receivedAt: Long) = guarded("package $packageName") {
         val result = appScanner.scanPackage(packageName) ?: return@guarded
+        recorder.recordApp(result, ScanSource.REAL_TIME)
         val elapsed = SystemClock.elapsedRealtime() - receivedAt
         Timber.i("Real-time scan of %s: %s (%d) in %d ms", packageName, result.verdict, result.riskScore, elapsed)
         if (AlertPolicy.shouldAlert(result.verdict, result.apkSha256, state.ignoredApks.first())) {
@@ -83,6 +87,7 @@ constructor(
         val first = synchronized(scannedFiles) { scannedFiles.put(candidate.key, Unit) == null }
         if (!first) return@guarded
         val result = fileScanner.scan(candidate)
+        recorder.recordFile(result)
         Timber.i("Real-time scan of file %s: %s (%d)", candidate.displayName, result.verdict, result.riskScore)
         if (AlertPolicy.shouldAlert(result.verdict, result.sha256, state.ignoredApks.first())) {
             notifications.showThreat(

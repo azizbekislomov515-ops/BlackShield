@@ -7,6 +7,7 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 from pydantic import BaseModel
 
 from app.core.config import Settings
+from app.core.metrics import AUTH_FAILURES, RATE_LIMITED
 from app.core.security import ApiKeyRing, RateDecision, RateLimiter
 
 api_key_header = APIKeyHeader(
@@ -63,8 +64,10 @@ def require_api_client(
     presented = api_key or (credentials.credentials if credentials else None)
     key_id = security.keys.verify(presented)
     if key_id is None:
+        AUTH_FAILURES.inc()
         failure = security.auth_failures.hit(client_ip)
         if not failure.allowed:
+            RATE_LIMITED.labels("auth").inc()
             raise _too_many(failure)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,6 +78,7 @@ def require_api_client(
     # One key is shared by every install of an app build, so limit per key *and* client IP.
     decision = security.limiter.hit(f"{key_id}|{client_ip}")
     if not decision.allowed:
+        RATE_LIMITED.labels("rate").inc()
         raise _too_many(decision)
     return key_id
 

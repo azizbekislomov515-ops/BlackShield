@@ -8,7 +8,7 @@ or a rule source.
 
 | Component | Version | License | Where | Notes |
 |---|---|---|---|---|
-| [libyara](https://github.com/VirusTotal/yara) | 4.5.8 | BSD-3-Clause | `libblackshield_scanner.so` (statically linked) | Fetched by CMake from the release tarball, pinned by SHA-256 (`android/core/scanner/src/main/cpp/cmake/libyara.cmake`). Only the core plus the `dex` and `math` modules are compiled; no source is modified. |
+| [libyara](https://github.com/VirusTotal/yara) | 4.5.8 | BSD-3-Clause | `libblackshield_scanner.so` (statically linked) | Fetched by CMake from the release tarball, pinned by SHA-256 (`android/core/scanner/src/main/cpp/cmake/libyara.cmake`). Only the core plus the `dex` and `math` modules are compiled. Three fixes for undefined behaviour found by fuzzing and sanitizers are applied at configure time (`cmake/patch-libyara.cmake`); BSD-3-Clause permits modified redistribution with the notice kept. |
 | LLVM libc++ (`c++_static`) | NDK 30 | Apache-2.0 WITH LLVM-exception | `libblackshield_scanner.so` | Part of the NDK toolchain. The exception waives notice requirements for compiled binaries. |
 
 **BSD-3-Clause conditions for libyara.** Clause 2 asks binary redistributions to reproduce the
@@ -24,6 +24,9 @@ When upgrading libyara, refresh that file from the new release.
 |---|---|---|
 | GoogleTest (from the NDK, `sources/third_party/googletest`) | BSD-3-Clause | Native unit tests (`connectedNativeTest`); linked only into the test executable, never into the APK. |
 | JUnit, kotlinx-coroutines-test, OkHttp MockWebServer, AndroidX Test | EPL-1.0 / Apache-2.0 | JVM and instrumented tests. |
+| Compose UI Test, Accessibility Test Framework, Espresso, AndroidX Test Services | Apache-2.0 | Compose UI tests with accessibility checks, screenshot output. |
+| [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer), JUnit 5 | Apache-2.0, EPL-2.0 | JVM fuzz tests of the APK, manifest and certificate parsers. |
+| libFuzzer, AddressSanitizer, UndefinedBehaviorSanitizer runtimes (NDK) | Apache-2.0 WITH LLVM-exception | Native fuzzing and sanitizer test builds; never in the APK. |
 
 ## YARA rules
 
@@ -58,6 +61,21 @@ with `domains-import` must meet the same bar as YARA rules above.
 
 ## Android and JVM libraries
 
+| Component | License | Use |
+| --- | --- | --- |
+| [Tink](https://github.com/tink-crypto/tink-java) (`tink-android`) | Apache-2.0 | Quarantine encryption (streaming AEAD) and its Keystore-wrapped keyset. |
+| [Material Symbols](https://github.com/google/material-design-icons) | Apache-2.0 | Icons in `core/designsystem/src/main/res/drawable/bs_ic_*.xml`, converted to vector drawables. |
+
 Kotlin, AndroidX (including Compose, Room, WorkManager, DataStore, Hilt), Dagger, Retrofit, OkHttp,
 kotlinx.serialization, kotlinx.coroutines and Timber are Apache-2.0. Their notices are covered by the
 standard Android open-source-licenses practice; see `android/gradle/libs.versions.toml` for versions.
+
+## Backend and deployment
+
+| Component | License | Use |
+| --- | --- | --- |
+| FastAPI, Pydantic, SQLAlchemy, Alembic (MIT); Starlette, Uvicorn, httpx2 (BSD-3-Clause); cryptography (Apache-2.0 OR BSD-3-Clause); psycopg (LGPL-3.0-only, used unmodified as a library) | as listed | API server (versions pinned in `backend/pyproject.toml`) |
+| [prometheus-client](https://github.com/prometheus/client_python) | Apache-2.0 AND BSD-2-Clause | `/metrics` |
+| [Nginx](https://nginx.org/) (`nginx:1.28-alpine` image) | BSD-2-Clause | Reverse proxy in `docker-compose.prod.yml` |
+| [PostgreSQL](https://www.postgresql.org/) (`postgres:18-alpine` image) | PostgreSQL License | Database |
+| pip-audit, pytest, Ruff | Apache-2.0, MIT | Development and CI only |

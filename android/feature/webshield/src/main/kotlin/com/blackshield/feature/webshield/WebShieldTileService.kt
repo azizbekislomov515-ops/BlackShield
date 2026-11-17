@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.blackshield.core.data.AppEntry
 import com.blackshield.core.data.prefs.UserPreferencesRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -49,11 +50,7 @@ class WebShieldTileService : TileService() {
 
     @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openApp() {
-        val launch =
-            packageManager.getLaunchIntentForPackage(
-                packageName
-            )?.putExtra(WebShieldNotifications.EXTRA_SHOW_WEB_SHIELD, true)
-                ?: return
+        val launch = AppEntry.intent(this).putExtra(WebShieldNotifications.EXTRA_SHOW_WEB_SHIELD, true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, launch, PendingIntent.FLAG_IMMUTABLE))
         } else {

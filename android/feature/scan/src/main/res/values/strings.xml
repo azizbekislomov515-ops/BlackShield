@@ -1,39 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="scan_title">BlackShield</string>
-    <string name="scan_idle_title">Scan installed apps</string>
-    <string name="scan_idle_body">Checks every installed app against the malware signature database.</string>
+    <string name="scan_title">Scan</string>
+    <string name="scan_ready">Ready to scan</string>
+    <string name="scan_running">Scanning apps</string>
+    <string name="scan_paused">Paused</string>
+    <string name="scan_done_clean">No threats found</string>
+    <string name="scan_done_threats">Threats found</string>
+    <string name="scan_percent">%1$d%%</string>
+    <string name="scan_progress_description">Scanning: %1$d%%</string>
+    <string name="scan_count">%1$d/%2$d</string>
+    <string name="scan_stat_apps">Apps</string>
+    <string name="scan_stat_threats">Threats</string>
     <string name="scan_now">Scan now</string>
     <string name="scan_again">Scan again</string>
     <string name="scan_pause">Pause</string>
     <string name="scan_resume">Resume</string>
     <string name="scan_cancel">Cancel</string>
-    <string name="scan_progress">Scanning %1$d of %2$d</string>
-    <string name="scan_paused">Paused at %1$d of %2$d</string>
-    <plurals name="scan_finished">
-        <item quantity="one">%1$d app scanned in %2$.1f s</item>
-        <item quantity="other">%1$d apps scanned in %2$.1f s</item>
+    <string name="scan_file">Scan an APK file</string>
+    <string name="scan_results_header">Results</string>
+    <string name="scan_no_results">No results yet</string>
+    <string name="file_scanning">Checking the file…</string>
+    <string name="file_clean">No threats found in this file.</string>
+    <string name="file_harmful">This file is harmful.</string>
+    <string name="file_unreadable">The file could not be read.</string>
+    <string name="file_quarantine">Quarantine</string>
+    <string name="file_later">Not now</string>
+    <string name="file_close">Close</string>
+    <string name="file_quarantined">Moved to quarantine. It can no longer be installed.</string>
+    <string name="file_original_kept">Encrypted copy saved, but the original could not be deleted. Delete it in your file manager.</string>
+    <string name="file_quarantine_failed">Could not quarantine the file. It may have been moved or deleted.</string>
+    <string name="schedule_channel">Scheduled scans</string>
+    <plurals name="schedule_threats_title">
+        <item quantity="one">Scheduled scan found %1$d threat</item>
+        <item quantity="other">Scheduled scan found %1$d threats</item>
     </plurals>
-    <string name="scan_finished_summary">Malicious: %1$d · Suspicious: %2$d</string>
-    <string name="scan_no_results">No results yet. Run a scan to check your apps.</string>
-
+    <string name="schedule_threats_body">Open BlackShield to review.</string>
     <string name="verdict_clean">Clean</string>
     <string name="verdict_suspicious">Suspicious</string>
     <string name="verdict_malicious">Malicious</string>
-
     <string name="details_package">Package</string>
     <string name="details_version">Version code</string>
-    <string name="details_sha256">Base APK SHA-256</string>
+    <string name="details_sha256">SHA-256</string>
     <string name="details_sha256_unavailable">Unavailable</string>
     <string name="details_risk">Risk score</string>
     <string name="details_risk_value">%1$d / 100</string>
     <string name="details_scanned_at">Scanned</string>
     <string name="details_reasons">Findings</string>
     <string name="details_no_reasons">Nothing found.</string>
-    <string name="details_reasons_hint">Each finding adds or removes points; together they make the risk score out of 100.</string>
+    <string name="details_reasons_hint">Each finding adds or removes points from the 0–100 risk score.</string>
     <string name="details_trust">Trust this app</string>
-    <string name="details_trust_hint">Suppresses heuristic warnings from the next scan. Known malware is still reported.</string>
-
+    <string name="details_trust_hint">Hides behaviour warnings. Known malware is still reported.</string>
     <string name="reason_known_malware">Known malware: %1$s</string>
     <string name="reason_sideloaded">Installed from outside an app store (%1$s)</string>
     <string name="reason_sms_access">Can read or send SMS (%1$s)</string>
@@ -46,7 +62,7 @@
     <string name="reason_points_negative">−%1$d</string>
     <string name="reason_points_capped">+%1$d of %2$d</string>
     <string name="reason_evidence">• %1$s</string>
-    <string name="reason_system_app">Preinstalled with the system, so it is not judged by behaviour rules</string>
-    <string name="reason_known_good">On BlackShield\'s list of known-good apps</string>
-    <string name="reason_analysis_incomplete">Part of this app could not be analyzed: %1$s</string>
+    <string name="reason_system_app">Preinstalled system app: not judged by behaviour rules</string>
+    <string name="reason_known_good">On the known-good list</string>
+    <string name="reason_analysis_incomplete">Partly analyzed: %1$s</string>
 </resources>

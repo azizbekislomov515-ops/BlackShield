@@ -2,7 +2,8 @@
 # libyara has no CMake build of its own; this file builds the static library from its sources with
 # the flags its autotools build would use on Linux, minus process scanning and most modules.
 #
-# Offline builds: pass -DFETCHCONTENT_SOURCE_DIR_LIBYARA=/path/to/yara-4.5.8 to skip the download.
+# Offline builds: pass -DFETCHCONTENT_SOURCE_DIR_LIBYARA=/path/to/yara-4.5.8 to skip the download, after running
+# cmake -P cmake/patch-libyara.cmake in that directory (PATCH_COMMAND does not run for a local source dir).
 # Upgrading: change the version and the hash together (sha256sum of the release tarball), then run
 # the GoogleTest suite (./gradlew :core:scanner:connectedNativeTest).
 
@@ -15,6 +16,8 @@ FetchContent_Declare(libyara
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     # There is no CMakeLists.txt to add; only fetch the sources.
     SOURCE_SUBDIR not-a-cmake-project
+    # Fixes for undefined behaviour found by the sanitizer builds (see the file).
+    PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/patch-libyara.cmake
 )
 FetchContent_MakeAvailable(libyara)
 

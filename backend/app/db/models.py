@@ -2,7 +2,17 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Index, String, Text, false
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Identity,
+    Index,
+    Integer,
+    String,
+    Text,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -124,3 +134,35 @@ __all__ = [
     "SignatureVersion",
     "YaraRuleset",
 ]
+
+
+class CrashReport(Base):
+    """An app crash, sent only by users who turned crash reports on (off by default).
+
+    Holds no identifier of the device or the person: the app sends its version, the Android SDK
+    level, the exception class and the stack frames (class, method, file and line), with exception
+    messages removed because they can contain file names or other data. No IP address is stored.
+    Rows older than 90 days are deleted (``blackshield-signatures crashes-prune``). See
+    docs/privacy.md.
+    """
+
+    __tablename__ = "crash_reports"
+
+    # BIGINT IDENTITY in PostgreSQL; SQLite (tests) only auto-increments INTEGER PRIMARY KEY.
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"), Identity(), primary_key=True
+    )
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    app_version: Mapped[str] = mapped_column(String(32))
+    version_code: Mapped[int] = mapped_column(Integer)
+    android_sdk: Mapped[int] = mapped_column(Integer)
+    exception: Mapped[str] = mapped_column(String(256))
+    # SHA-256 of exception + frames: groups reports of the same crash.
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    stack: Mapped[str] = mapped_column(Text)
+
+    __table_args__ = (
+        Index("ix_crash_reports_received_at", "received_at"),
+        Index("ix_crash_reports_fingerprint", "fingerprint"),
+    )

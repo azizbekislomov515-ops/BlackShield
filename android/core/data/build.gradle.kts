@@ -14,6 +14,9 @@ room {
 }
 
 dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.tink.android)
+    implementation(libs.timber)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

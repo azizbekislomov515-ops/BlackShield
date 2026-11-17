@@ -47,6 +47,13 @@ jobs:
       - name: Android lint, detekt, ktlint
         run: ./gradlew lint detekt ktlintCheck
 
+      # R8 release build (unsigned here; signing happens in release.yml) and a check that it is not debuggable.
+      - name: Release build
+        run: |
+          ./gradlew :app:assembleRelease
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt2" dump xmltree             --file AndroidManifest.xml app/build/outputs/apk/release/app-release-unsigned.apk > manifest.txt
+          ! grep -q "debuggable" manifest.txt
+
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -93,7 +100,12 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           working-directory: android
-          script: ./gradlew :core:scanner:connectedNativeTest :core:scanner:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest :core:sync:connectedDebugAndroidTest :app:connectedDebugAndroidTest
+          # Native suite plain and under ASan + UBSan, five minutes of fuzzing, then the instrumented suites.
+          script: |
+            ./gradlew :core:scanner:connectedNativeTest
+            ./gradlew :core:scanner:connectedNativeTest -PnativeSanitize=address,undefined
+            ./gradlew :core:scanner:connectedNativeFuzz -PfuzzSeconds=300
+            ./gradlew :core:scanner:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest :core:sync:connectedDebugAndroidTest :app:connectedDebugAndroidTest
 
       - name: Upload device test reports
         if: always()
@@ -103,5 +115,6 @@ jobs:
           path: |
             android/core/*/build/reports/androidTests/
             android/core/*/build/outputs/androidTest-results/
+            android/core/scanner/build/native-fuzz/findings/
           if-no-files-found: ignore
           retention-days: 14

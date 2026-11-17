@@ -1,67 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="webshield_title">Web Shield</string>
-    <string name="webshield_summary">Blocks malware and phishing sites for every app, by refusing to look up their addresses.</string>
+    <string name="webshield_summary">Blocks malware and phishing sites in every app.</string>
     <string name="webshield_switch">Web Shield</string>
-
     <string name="webshield_status_off">Off</string>
     <string name="webshield_status_starting">Starting…</string>
-    <string name="webshield_status_on">On: checking every website address on this phone</string>
-    <string name="webshield_status_no_permission">Off: the VPN permission is needed to filter lookups</string>
-    <string name="webshield_status_revoked">Off: another VPN app took over, or Web Shield was disconnected in settings</string>
-    <string name="webshield_status_failed">Off: Android did not allow the VPN. Another app may be set as the always-on VPN.</string>
-    <string name="webshield_always_on">Set as the always-on VPN in system settings.</string>
+    <string name="webshield_status_on">On: checking every site lookup</string>
+    <string name="webshield_status_no_permission">Off: VPN permission needed</string>
+    <string name="webshield_status_revoked">Off: another VPN took over</string>
+    <string name="webshield_status_failed">Off: Android refused the VPN. Another app may be the always-on VPN.</string>
+    <string name="webshield_always_on">Set as the always-on VPN.</string>
+    <string name="webshield_onboarding_title">Why a VPN?</string>
+    <string name="webshield_onboarding_body">Android lets an app see site lookups only through a VPN. Web Shield uses it for one thing: checking each site against a list of dangerous ones, on your phone.
 
-    <string name="webshield_onboarding_title">Why Web Shield needs a VPN</string>
-    <string name="webshield_onboarding_body">Android lets an app see which websites the phone looks up only through a VPN. Web Shield uses that permission for one thing: before an app connects to a site, it checks the site against a list of known malware and phishing domains, on this phone.\n\n• Only address lookups (DNS) pass through Web Shield. Your browsing itself goes straight to the internet, untouched.\n• Nothing is sent to a VPN server. Allowed lookups go to the same resolver your network already uses.\n• No browsing history is kept: only how many sites were blocked. An optional activity log of blocked sites stays on this phone.\n\nAndroid will now ask you to allow the connection. A key icon shows while Web Shield is on.</string>
+• Only lookups (DNS) pass through. Your browsing goes straight to the internet.
+• Nothing is sent to a VPN server.
+• No browsing history is kept, only how many sites were blocked.
+
+A key icon shows while Web Shield is on.</string>
     <string name="webshield_onboarding_continue">Continue</string>
     <string name="webshield_onboarding_cancel">Not now</string>
-
-    <string name="webshield_warning_private_dns">Private DNS (%1$s) is on, so Android looks up sites itself and Web Shield cannot check them. Set Private DNS to Automatic or Off to use Web Shield.</string>
-    <string name="webshield_warning_no_network">No network: lookups will work again when a connection is back.</string>
+    <string name="webshield_warning_private_dns">Private DNS (%1$s) bypasses Web Shield. Set it to Automatic or Off.</string>
+    <string name="webshield_warning_no_network">No network: lookups resume when you\'re back online.</string>
     <string name="webshield_open_settings">Open settings</string>
     <string name="webshield_turn_on_again">Turn on again</string>
-    <string name="webshield_note_browsers">Browsers with their own secure DNS (for example Chrome\'s \"Use secure DNS\" with a custom provider) bypass Web Shield.</string>
-
+    <string name="webshield_note_browsers">Browsers with their own secure DNS bypass Web Shield.</string>
     <string name="webshield_stats_title">Blocked</string>
     <string name="webshield_stats_today">Today</string>
-    <string name="webshield_stats_week">Last 7 days</string>
+    <string name="webshield_stats_week">7 days</string>
     <string name="webshield_stats_total">All time</string>
     <string name="webshield_stats_split">Malware: %1$d · Phishing: %2$d</string>
-
     <string name="webshield_list_title">Blocklist</string>
     <plurals name="webshield_list_count">
         <item quantity="one">%1$d domain</item>
         <item quantity="other">%1$d domains</item>
     </plurals>
     <string name="webshield_list_updated">Updated %1$s</string>
-    <string name="webshield_list_never">Not downloaded yet: it arrives with the next signature update.</string>
-
+    <string name="webshield_list_never">Arrives with the next database update.</string>
     <string name="webshield_notify">Notify when a site is blocked</string>
-    <string name="webshield_notify_summary">With \"Allow once\" to open it anyway.</string>
+    <string name="webshield_notify_summary">With “Allow once”</string>
     <string name="webshield_activity">Activity log</string>
-    <string name="webshield_activity_summary">Keep a list of blocked sites on this phone for 7 days. Never uploaded. Sites you visit are never recorded.</string>
+    <string name="webshield_activity_summary">Keeps blocked sites on this phone for 7 days. Visited sites are never recorded.</string>
     <string name="webshield_activity_empty">No blocked sites yet.</string>
     <string name="webshield_activity_clear">Clear log</string>
-
     <string name="webshield_allow_title">Always allowed</string>
-    <string name="webshield_allow_summary">These domains and their subdomains are never blocked.</string>
+    <string name="webshield_allow_summary">Never blocked, with their subdomains.</string>
     <string name="webshield_allow_hint">example.com</string>
     <string name="webshield_allow_add">Allow</string>
     <string name="webshield_allow_remove">Remove</string>
     <string name="webshield_allow_invalid">Enter a domain such as example.com</string>
-
     <string name="webshield_channel_blocked">Blocked sites</string>
-    <string name="webshield_channel_blocked_description">A site was blocked because it is known for malware or phishing.</string>
+    <string name="webshield_channel_blocked_description">A known malware or phishing site was blocked.</string>
     <string name="webshield_channel_status">Web Shield status</string>
     <string name="webshield_blocked_malware">Blocked a malware site</string>
     <string name="webshield_blocked_phishing">Blocked a phishing site</string>
-    <string name="webshield_blocked_body">%1$s is on BlackShield\'s list of dangerous sites, so it was not opened. If you trust it, allow it once or always.</string>
+    <string name="webshield_blocked_body">%1$s is on the list of dangerous sites. If you trust it, allow it.</string>
     <string name="webshield_allow_once">Allow once</string>
     <string name="webshield_always_allow">Always allow</string>
     <string name="webshield_revoked_title">Web Shield turned off</string>
-    <string name="webshield_revoked_body">Another VPN app started, or the VPN was disconnected in settings. Open BlackShield to turn Web Shield on again.</string>
-
+    <string name="webshield_revoked_body">Another VPN started or the VPN was disconnected. Open BlackShield to turn it on.</string>
     <string name="webshield_vpn_session">BlackShield Web Shield</string>
     <string name="webshield_tile_label">Web Shield</string>
     <string name="webshield_tile_on">On</string>

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.BlackShield" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Only the window behind Compose; matches the Compose background so launch has no flash. -->
+    <style name="Theme.BlackShield" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
 </resources>

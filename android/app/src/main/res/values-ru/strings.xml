@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlackShield</string>
+    <string name="nav_home">Главная</string>
+    <string name="nav_scan">Проверка</string>
+    <string name="nav_threats">Угрозы</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="nav_web_shield">Веб-щит</string>
+    <string name="nav_back">Назад</string>
+    <string name="integrity_title">Эта копия изменена</string>
+    <string name="integrity_body">Это приложение BlackShield изменено посторонними, поэтому ему нельзя доверять защиту. Удалите его и установите BlackShield из Google Play.</string>
+    <string name="integrity_uninstall">Удалить</string>
+</resources>

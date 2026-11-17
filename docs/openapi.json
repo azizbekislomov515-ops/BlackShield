@@ -1,6 +1,80 @@
 {
   "components": {
     "schemas": {
+      "CrashReportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "android_sdk": {
+            "maximum": 100.0,
+            "minimum": 21.0,
+            "title": "Android Sdk",
+            "type": "integer"
+          },
+          "app_version": {
+            "examples": [
+              "1.0.0"
+            ],
+            "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
+            "title": "App Version",
+            "type": "string"
+          },
+          "exceptions": {
+            "description": "Exception classes, outermost first, then each cause.",
+            "items": {
+              "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]{0,199}$",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Exceptions",
+            "type": "array"
+          },
+          "frames": {
+            "description": "Stack frames of the root cause, top first.",
+            "items": {
+              "pattern": "^[A-Za-z0-9_$.<>-]{1,200}\\([A-Za-z0-9_$. -]{0,100}(:\\d{1,7})?\\)$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Frames",
+            "type": "array"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "version_code": {
+            "maximum": 2000000000.0,
+            "minimum": 1.0,
+            "title": "Version Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "app_version",
+          "version_code",
+          "android_sdk",
+          "occurred_at",
+          "exceptions",
+          "frames"
+        ],
+        "title": "CrashReportRequest",
+        "type": "object"
+      },
+      "CrashReportResponse": {
+        "properties": {
+          "accepted": {
+            "const": true,
+            "default": true,
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "title": "CrashReportResponse",
+        "type": "object"
+      },
       "DeltaAddition": {
         "properties": {
           "algorithm": {
@@ -618,6 +692,52 @@
         "summary": "Readiness",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/v1/crashes": {
+      "post": {
+        "description": "Stores one crash report from a user who turned crash reports on.\n\nOnly the fields in the request are kept; no IP address or other client detail is stored. Reports\nare deleted after 90 days.",
+        "operationId": "report_crash_v1_crashes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrashReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrashReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "description": "Request body too large."
+          },
+          "422": {
+            "description": "Not a valid report."
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          },
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Report Crash",
+        "tags": [
+          "crashes"
         ]
       }
     },

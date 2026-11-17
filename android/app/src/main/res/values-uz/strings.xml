@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlackShield</string>
+    <string name="nav_home">Asosiy</string>
+    <string name="nav_scan">Tekshirish</string>
+    <string name="nav_threats">Tahdidlar</string>
+    <string name="nav_settings">Sozlamalar</string>
+    <string name="nav_web_shield">Veb qalqon</string>
+    <string name="nav_back">Orqaga</string>
+    <string name="integrity_title">Bu nusxa o‘zgartirilgan</string>
+    <string name="integrity_body">Bu BlackShield ilovasini boshqa birov o‘zgartirgan, shuning uchun u sizni himoya qila olishiga ishonib bo‘lmaydi. Uni o‘chirib, BlackShield’ni Google Play’dan o‘rnating.</string>
+    <string name="integrity_uninstall">O‘chirish</string>
+</resources>

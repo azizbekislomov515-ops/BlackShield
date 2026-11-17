@@ -9,6 +9,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Android / Gradle
 .gradle/
@@ -22,6 +23,7 @@ captures/
 *.aab
 *.keystore
 *.jks
+dist/
 
 # Python
 __pycache__/

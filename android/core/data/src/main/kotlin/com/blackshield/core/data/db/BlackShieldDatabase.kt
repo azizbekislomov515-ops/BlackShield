@@ -8,6 +8,8 @@ import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.blackshield.core.data.model.AllowListEntry
 import com.blackshield.core.data.model.BlockedDomain
+import com.blackshield.core.data.model.FileThreat
+import com.blackshield.core.data.model.HistoryEvent
 import com.blackshield.core.data.model.MalwareSignature
 import com.blackshield.core.data.model.QuarantineEntry
 import com.blackshield.core.data.model.ScanResult
@@ -24,9 +26,11 @@ import com.blackshield.core.data.model.WebAllowListEntry
         AllowListEntry::class,
         BlockedDomain::class,
         WebAllowListEntry::class,
-        WebActivityEntry::class
+        WebActivityEntry::class,
+        HistoryEvent::class,
+        FileThreat::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -46,6 +50,10 @@ abstract class BlackShieldDatabase : RoomDatabase() {
     abstract fun webAllowListDao(): WebAllowListDao
 
     abstract fun webActivityDao(): WebActivityDao
+
+    abstract fun historyDao(): HistoryDao
+
+    abstract fun fileThreatDao(): FileThreatDao
 
     companion object {
         const val NAME = "blackshield.db"

@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.blackshield.core.data.AppEntry
 import com.blackshield.core.data.model.DomainCategory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
@@ -132,15 +133,12 @@ constructor(@param:ApplicationContext private val context: Context) {
 
     fun cancel(id: Int) = NotificationManagerCompat.from(context).cancel(id)
 
-    private fun openApp(): PendingIntent? =
-        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
-            PendingIntent.getActivity(
-                context,
-                0,
-                launch.putExtra(EXTRA_SHOW_WEB_SHIELD, true),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-        }
+    private fun openApp(): PendingIntent = PendingIntent.getActivity(
+        context,
+        0,
+        AppEntry.intent(context).putExtra(EXTRA_SHOW_WEB_SHIELD, true),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
 
     private fun action(action: String, domain: String, notificationId: Int): PendingIntent = PendingIntent.getBroadcast(
         context,

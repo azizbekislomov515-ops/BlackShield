@@ -8,6 +8,32 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(BLACKSHIELD_BUILD_TESTS "Build the GoogleTest suite (run on a device with :core:scanner:connectedNativeTest)" OFF)
+option(BLACKSHIELD_BUILD_FUZZERS "Build the libFuzzer targets (run on a device with :core:scanner:connectedNativeFuzz)" OFF)
+# Sanitizers for the test and fuzz builds: "address", "undefined" or "address,undefined". Never in the APK.
+set(BLACKSHIELD_SANITIZE "" CACHE STRING "Sanitizers for test and fuzz builds")
+
+# --- Hardening: this code reads untrusted files (APKs, DEX). Applied to every target, libyara included. ---
+# Stack canaries on functions with arrays or address-taken locals; full RELRO (GOT read-only after load);
+# non-executable stack. Shared libraries are position independent and NDK executables are PIE by default.
+add_compile_options(-fstack-protector-strong)
+add_link_options(-Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack)
+if(BLACKSHIELD_BUILD_FUZZERS)
+    # Coverage instrumentation for everything the fuzzers reach (libyara included); the fuzzer targets link
+    # libFuzzer itself with -fsanitize=fuzzer.
+    add_compile_options(-fsanitize=fuzzer-no-link)
+endif()
+if(BLACKSHIELD_SANITIZE)
+    if(NOT BLACKSHIELD_BUILD_TESTS AND NOT BLACKSHIELD_BUILD_FUZZERS)
+        message(FATAL_ERROR "BLACKSHIELD_SANITIZE is for test and fuzz builds only")
+    endif()
+    # FORTIFY's checked functions hide accesses from the sanitizers' interceptors, so it is off here.
+    add_compile_options(-fsanitize=${BLACKSHIELD_SANITIZE} -fno-sanitize-recover=all -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=${BLACKSHIELD_SANITIZE})
+else()
+    # Bounds-checked libc calls where the size is known at compile time. Takes effect in optimised code: every
+    # release build, and the scan core and libyara in debug builds too (both are always -O2).
+    add_compile_options(-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2)
+endif()
 
 set(BLACKSHIELD_WARNINGS -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Werror)
 
@@ -56,4 +82,9 @@ target_link_libraries(blackshield_scanner PRIVATE ${log-lib})
 # --- GoogleTest suite (device executable) ---
 if(BLACKSHIELD_BUILD_TESTS)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../nativeTest/cpp ${CMAKE_CURRENT_BINARY_DIR}/native-tests)
+endif()
+
+# --- libFuzzer targets (device executables) ---
+if(BLACKSHIELD_BUILD_FUZZERS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../nativeFuzz/cpp ${CMAKE_CURRENT_BINARY_DIR}/native-fuzz)
 endif()

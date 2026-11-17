@@ -13,6 +13,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.blackshield.core.data.AppEntry
 import com.blackshield.core.data.model.Verdict
 import com.blackshield.feature.protection.logic.ThreatAlert
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -143,7 +144,7 @@ constructor(@ApplicationContext private val context: Context) {
 
     private fun openApp(request: Int, extras: Intent): PendingIntent {
         val launch =
-            (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent())
+            AppEntry.intent(context)
                 .putExtras(extras)
                 .addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP

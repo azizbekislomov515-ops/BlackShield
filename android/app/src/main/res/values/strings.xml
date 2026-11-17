@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BlackShield</string>
+    <string name="nav_home">Home</string>
     <string name="nav_scan">Scan</string>
+    <string name="nav_threats">Threats</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_web_shield">Web Shield</string>
-    <string name="notification_prompt_title">Allow warnings?</string>
-    <string name="notification_prompt_body">Real-time protection checks every app you install and can warn you right away when one is harmful. To show those warnings, BlackShield needs permission to send notifications.</string>
-    <string name="notification_prompt_allow">Continue</string>
-    <string name="notification_prompt_later">Not now</string>
+    <string name="nav_back">Back</string>
+    <string name="integrity_title">This copy is modified</string>
+    <string name="integrity_body">This BlackShield app was changed by someone else, so it can’t be trusted to protect you. Uninstall it and install BlackShield from Google Play.</string>
+    <string name="integrity_uninstall">Uninstall</string>
 </resources>

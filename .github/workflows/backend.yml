@@ -56,6 +56,9 @@ jobs:
       - name: Ruff format
         run: ruff format --check .
 
+      - name: Dependency audit (known vulnerabilities)
+        run: pip-audit --local --skip-editable --strict
+
       - name: Pytest (SQLite)
         run: pytest
 
@@ -93,7 +96,8 @@ jobs:
         run: test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8000/v1/signatures/version)" = 401
 
       - name: /v1 serves the migrated database
-        run: curl --fail --silent --show-error -H "X-API-Key: $API_KEY" http://localhost:8000/v1/signatures/version
+        run: |
+          curl --fail --silent --show-error -H "X-API-Key: $API_KEY" http://localhost:8000/v1/signatures/version
 
       - name: Logs on failure
         if: failure()
@@ -102,3 +106,41 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down --volumes
+
+  production-config:
+    name: Production compose + Nginx config
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Self-signed certificate and placeholder secrets
+        run: |
+          mkdir -p "$RUNNER_TEMP/tls"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=api.example.com"             -keyout "$RUNNER_TEMP/tls/privkey.pem" -out "$RUNNER_TEMP/tls/fullchain.pem"
+          sed -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=ci-$(openssl rand -hex 16)|"               -e "s|^TLS_CERT_DIR=.*|TLS_CERT_DIR=$RUNNER_TEMP/tls|" .env.prod.example > .env
+
+      - name: docker compose config
+        run: docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: nginx -t
+        run: |
+          docker run --rm --add-host api:127.0.0.1             -v "$PWD/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro"             -v "$PWD/deploy/nginx/conf.d:/etc/nginx/conf.d:ro"             -v "$RUNNER_TEMP/tls:/etc/nginx/tls:ro"             nginx:1.28-alpine nginx -t
+
+      - name: Full stack through Nginx
+        run: |
+          docker compose -f docker-compose.prod.yml up --build --detach --wait --wait-timeout 180
+          curl --fail --silent --show-error --insecure --resolve api.example.com:443:127.0.0.1 https://api.example.com/health
+          # /metrics and the docs are not served publicly.
+          test "$(curl --silent --insecure --output /dev/null --write-out '%{http_code}' --resolve api.example.com:443:127.0.0.1 https://api.example.com/metrics)" = 404
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down --volumes

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,14 +17,11 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,6 +33,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.blackshield.core.data.prefs.ScanSchedule
+import com.blackshield.core.data.prefs.ThemeMode
+import com.blackshield.core.designsystem.R as DsR
+import com.blackshield.core.designsystem.component.BsCard
+import com.blackshield.core.designsystem.component.BsTopBar
+import com.blackshield.core.designsystem.component.ListRow
+import com.blackshield.core.designsystem.component.SectionHeader
 import com.blackshield.core.sync.SyncErrorKind
 import java.text.NumberFormat
 import java.time.Instant
@@ -43,6 +48,7 @@ import java.time.Instant
 fun SettingsRoute(
     modifier: Modifier = Modifier,
     onOpenTroubleshooting: () -> Unit = {},
+    onOpenWebShield: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,11 +61,25 @@ fun SettingsRoute(
         onWatchDownloadsChange = viewModel::setWatchDownloads,
         onFolderAdded = viewModel::addWatchedFolder,
         onFolderRemoved = viewModel::removeWatchedFolder,
-        onOpenTroubleshooting = onOpenTroubleshooting
+        onOpenTroubleshooting = onOpenTroubleshooting,
+        extra =
+            SettingsExtras(
+                onScheduleChange = viewModel::setSchedule,
+                onThemeChange = viewModel::setTheme,
+                onOpenWebShield = onOpenWebShield,
+                onCrashReportsChange = viewModel::setCrashReports
+            )
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Callbacks for the sections added with the redesign. */
+data class SettingsExtras(
+    val onScheduleChange: (ScanSchedule) -> Unit = {},
+    val onThemeChange: (ThemeMode) -> Unit = {},
+    val onOpenWebShield: () -> Unit = {},
+    val onCrashReportsChange: (Boolean) -> Unit = {}
+)
+
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
@@ -70,33 +90,53 @@ fun SettingsScreen(
     onWatchDownloadsChange: (Boolean) -> Unit = {},
     onFolderAdded: (String) -> Unit = {},
     onFolderRemoved: (String) -> Unit = {},
-    onOpenTroubleshooting: () -> Unit = {}
+    onOpenTroubleshooting: () -> Unit = {},
+    extra: SettingsExtras = SettingsExtras()
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
+        topBar = { BsTopBar(stringResource(R.string.settings_title)) }
     ) { innerPadding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(innerPadding).verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize().padding(
+                innerPadding
+            ).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)
         ) {
-            SectionHeader(R.string.settings_section_protection)
-            RealTimeProtectionSection(
-                state = state,
-                onRealTimeProtectionChange = onRealTimeProtectionChange,
-                onWatchDownloadsChange = onWatchDownloadsChange,
-                onFolderAdded = onFolderAdded,
-                onFolderRemoved = onFolderRemoved,
-                onOpenTroubleshooting = onOpenTroubleshooting
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SectionHeader(R.string.settings_section_signatures)
-            SignatureDatabaseSection(state.signatures, onSyncNow)
-            SwitchRow(
-                title = stringResource(R.string.settings_wifi_only),
-                summary = stringResource(R.string.settings_wifi_only_summary),
-                checked = state.wifiOnly,
-                onCheckedChange = onWifiOnlyChange
-            )
+            SectionHeader(stringResource(R.string.settings_section_protection))
+            BsCard(contentPadding = 0.dp) {
+                RealTimeProtectionSection(
+                    state = state,
+                    onRealTimeProtectionChange = onRealTimeProtectionChange,
+                    onWatchDownloadsChange = onWatchDownloadsChange,
+                    onFolderAdded = onFolderAdded,
+                    onFolderRemoved = onFolderRemoved,
+                    onOpenTroubleshooting = onOpenTroubleshooting
+                )
+                ListRow(
+                    title = stringResource(R.string.settings_web_shield),
+                    subtitle = stringResource(R.string.settings_web_shield_summary),
+                    icon = DsR.drawable.bs_ic_globe,
+                    onClick = extra.onOpenWebShield,
+                    modifier = Modifier.testTag("settingsWebShield")
+                )
+            }
+            SectionHeader(stringResource(R.string.settings_section_schedule))
+            BsCard(contentPadding = 0.dp) { ScheduleSection(state.schedule, extra.onScheduleChange) }
+            SectionHeader(stringResource(R.string.settings_section_signatures))
+            BsCard(contentPadding = 0.dp) {
+                SignatureDatabaseSection(state.signatures, onSyncNow)
+                SwitchRow(
+                    title = stringResource(R.string.settings_wifi_only),
+                    summary = stringResource(R.string.settings_wifi_only_summary),
+                    checked = state.wifiOnly,
+                    onCheckedChange = onWifiOnlyChange
+                )
+            }
+            SectionHeader(stringResource(R.string.settings_section_appearance))
+            BsCard(contentPadding = 0.dp) { AppearanceSection(state.theme, extra.onThemeChange) }
+            SectionHeader(stringResource(R.string.settings_section_privacy))
+            BsCard(contentPadding = 0.dp) { PrivacySection(state.crashReports, extra.onCrashReportsChange) }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -173,16 +213,6 @@ private fun errorMessage(error: SyncErrorKind): Int = when (error) {
 private fun relativeTime(instant: Instant): String = DateUtils
     .getRelativeTimeSpanString(instant.toEpochMilli(), System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
     .toString()
-
-@Composable
-private fun SectionHeader(@StringRes title: Int) {
-    Text(
-        text = stringResource(title),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
-    )
-}
 
 @Composable
 private fun InfoRow(label: String, value: String, tag: String) {

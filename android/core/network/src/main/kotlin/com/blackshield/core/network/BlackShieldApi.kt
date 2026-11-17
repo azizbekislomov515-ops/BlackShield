@@ -1,5 +1,6 @@
 package com.blackshield.core.network
 
+import com.blackshield.core.network.model.CrashReportRequest
 import com.blackshield.core.network.model.DomainDeltaResponse
 import com.blackshield.core.network.model.DomainVersionResponse
 import com.blackshield.core.network.model.HealthResponse
@@ -67,4 +68,8 @@ interface BlackShieldApi {
     /** Verdicts for up to 100 SHA-256 digests. Hashes only: never send file contents. */
     @POST("v1/reputation/lookup")
     suspend fun reputationLookup(@Body request: ReputationLookupRequest): ReputationLookupResponse
+
+    /** One crash report; only called when the user turned crash reports on. 202 on success. */
+    @POST("v1/crashes")
+    suspend fun reportCrash(@Body report: CrashReportRequest): Response<Unit>
 }

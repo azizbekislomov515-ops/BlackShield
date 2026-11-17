@@ -46,6 +46,22 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate3To4_schemaMatchesExportedV4_andKeepsData() {
+        helper.createDatabase(DB, 3).apply {
+            execSQL("INSERT INTO blocked_domains (domain, category, added_at) VALUES ('evil.example', 'MALWARE', 1)")
+            close()
+        }
+        helper.runMigrationsAndValidate(DB, 4, true, MIGRATION_3_4).close()
+
+        val db = TestDatabases.open(DB)
+        runBlocking {
+            assertEquals(1L, db.blockedDomainDao().count())
+            assertEquals(emptyList<Any>(), db.historyDao().observeRecent(10).first())
+        }
+        db.close()
+    }
+
+    @Test
     fun migrate1To2_keepsLatestV1ResultPerTarget() {
         helper.createDatabase(DB, 1).apply {
             execSQL("INSERT INTO scan_results (target, verdict, scannedAtEpochMillis) VALUES ('com.a', 'CLEAN', 100)")
